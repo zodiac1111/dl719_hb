@@ -44,7 +44,11 @@
 //#define C_PARA_SET    191//参数下装
 //#define C_CTL_MON_ON	192	/*控制端口报文监视开*/
 //#define C_CTL_MON_OFF	193 /*控制端口报文监视关*/
-
+//打印编译构建的日期和时间，类似：Dec  3 2012 09:59:57
+#define PRINT_BUILD_TIME {					\
+		printf(LIB_INF"Build time:\t"RED"%s %s"_COLOR"\n",\
+		 __DATE__, __TIME__);		\
+	}
 class CDl719s: public CBASE102
 {
 public:

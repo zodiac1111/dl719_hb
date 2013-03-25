@@ -2694,8 +2694,9 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 	//Clear_Continue_Flag();
 	//C_RCU_NAF();
 	c_TI = *(data+7);
-	if (c_TI!=c_TI_tmp)
+	if (c_TI!=c_TI_tmp){
 		c_FCB_Tmp = 0xff;
+	}
 	c_TI_tmp = c_TI;
 	c_FCB = *(data+4)&0x20;
 	c_func = *(data+4)&0x0f;
@@ -2710,10 +2711,9 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 	if ((0x03==c_func)/*&&(0x01==tmp_VSQ)*/) {
 		printf(LIB_INF"功能码3 数据传输\n");
 		switch (c_TI_tmp) {
-		case C_SYN_TA_2:
+		case C_SYN_TA_2://系统时间同步
 			c_TI = C_SYN_TA_2;
 			m_ACD = 1;
-
 			if (/*!ERTU_TIME_CHECK&&*/m_checktime_valifalg) {
 				E5H_Yes();
 				//Command=C_CON_ACT;
@@ -2730,16 +2730,15 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 				Clear_Continue_Flag();
 				Clear_FrameFlags();
 			}
-
 			break;
-		case C_RD_NA_2:
+		case C_RD_NA_2://读制造厂和产品规范
 			c_TI = C_RD_NA_2;
 			m_ACD = 1;
 			E5H_Yes();
 			Command = C_CON_ACT;
 			break;
 
-		case C_TI_NB_2:     //ϵͳʱ??
+		case C_TI_NB_2:    //读电能量终端设备的当前系统时间
 			printf("Read system time !\n");
 			c_TI = C_TI_NB_2;
 			m_ACD = 1;
@@ -2748,7 +2747,7 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 			//Command=C_CON_ACT;
 			Command = C_DATA_TRAN;
 			break;
-		case C_CI_NC_2:     // ??ǰ????��
+		case C_CI_NC_2:     //制定地址范围的当前总电量
 			/*
 			 if(c_FCB_Tmp==c_FCB)m_Resend=1;
 			 else
@@ -2763,7 +2762,7 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 			E5H_Yes();
 			Command = C_CON_ACT;
 			break;
-		case C_CI_NA_B_2:
+		case C_CI_NA_B_2://指定地址范围的当前分时电量
 			/*
 			 if(c_FCB_Tmp==c_FCB)m_Resend=1;
 			 else
@@ -2779,7 +2778,7 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 			E5H_Yes();
 			Command = C_CON_ACT;
 			break;
-		case C_CI_NQ_2:     //
+		case C_CI_NQ_2: //指定时间和地址范围的历史总电量
 			/*
 			 if(c_FCB_Tmp==c_FCB)m_Resend=1;
 			 else
@@ -2797,7 +2796,7 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 			E5H_Yes();
 			Command = C_CON_ACT;
 			break;
-		case C_CI_TA_B_2:
+		case C_CI_TA_B_2://制定地址和时间范围的历史分时电量
 			/*
 			 if(c_FCB_Tmp==c_FCB)m_Resend=1;
 			 else
@@ -2814,7 +2813,7 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 			E5H_Yes();
 			Command = C_CON_ACT;
 			break;
-		case C_YC_NA_2:
+		case C_YC_NA_2://指定地址范围的遥测当前值
 			/*
 			 if(c_FCB_Tmp==c_FCB)m_Resend=1;
 			 else
@@ -2830,7 +2829,7 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 			E5H_Yes();
 			Command = C_CON_ACT;
 			break;
-		case C_YC_TA_2:
+		case C_YC_TA_2://指定时间和地址范围的遥测历史值
 			/*
 			 if(c_FCB_Tmp==c_FCB)m_Resend=1;
 			 else
@@ -2851,7 +2850,7 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 			E5H_Yes();
 			Command = C_CON_ACT;
 			break;
-		case C_MNT_NA_2:
+		case C_MNT_NA_2://指定地址范围的需量及时间当前值
 			/*
 			 if(c_FCB_Tmp==c_FCB)m_Resend=1;
 			 else
@@ -2866,7 +2865,7 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 			E5H_Yes();
 			Command = C_CON_ACT;
 			break;
-		case C_MNT_TA_2:
+		case C_MNT_TA_2://指定时间和地址范围的需量及时间历史值
 			/*
 			 if(c_FCB_Tmp==c_FCB)m_Resend=1;
 			 else
@@ -2882,7 +2881,7 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 			E5H_Yes();
 			Command = C_CON_ACT;
 			break;
-		case C_XX_NA_2:
+		case C_XX_NA_2://指定地址范围内的四象限无功
 			/*
 			 if(c_FCB_Tmp==c_FCB)m_Resend=1;
 			 else
@@ -2897,7 +2896,7 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 			E5H_Yes();
 			Command = C_CON_ACT;
 			break;
-		case C_XX_TA_2:
+		case C_XX_TA_2://指定地址范围内的四象限无功历史值
 			/*
 			 if(c_FCB_Tmp==c_FCB)m_Resend=1;
 			 else
@@ -2913,7 +2912,7 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 			E5H_Yes();
 			Command = C_CON_ACT;
 			break;
-		case C_LTOU_TA_2:
+		case C_LTOU_TA_2://传送月末冻结电量
 			printf("Process Ldd \n");
 			c_TI = C_LTOU_TA_2;
 			m_ACD = 1;
@@ -2924,7 +2923,7 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 			E5H_Yes();
 			Command = C_CON_ACT;
 			break;
-		case C_PARA_TRAN:
+		case C_PARA_TRAN://参数上传
 			/*
 			 if(c_FCB_Tmp==c_FCB)m_Resend=1;
 			 else
@@ -2941,7 +2940,7 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 			E5H_Yes();
 			Command = C_CON_ACT;
 			break;
-		case C_PARA_SET:
+		case C_PARA_SET://参数设置
 			c_TI = C_PARA_SET;
 			m_ACD = 1;
 			m_VSQ_tmp = *(data+8);
@@ -3022,8 +3021,7 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 			//if(!m_Now_Frame_Seq)
 			//Close_Task();//close contrltsk
 			m_Update_Flag = M_Write_Main_File(data);
-			if (m_Resend>=3)
-			                {
+			if (m_Resend>=3){
 				M_Soft_Update_Can();
 				m_Resend = 0;
 				Main_Update_OK = 0;
@@ -3034,7 +3032,6 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 				Main_Update_OK = 1;
 				rename(MainFilebak, MainFile);
 			}
-
 			break;
 		case C_Soft_Reset:
 			*Reboot_Flag = 1;
@@ -3148,5 +3145,6 @@ int CDl719s::ReciProc()
 
 extern "C" CProtocol *CreateCProto_dl719()
 {
+	PRINT_BUILD_TIME
 	return new CDl719s;
 }
