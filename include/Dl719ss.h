@@ -44,10 +44,19 @@
 //#define C_PARA_SET    191//参数下装
 //#define C_CTL_MON_ON	192	/*控制端口报文监视开*/
 //#define C_CTL_MON_OFF	193 /*控制端口报文监视关*/
-//打印编译构建的日期和时间，类似：Dec  3 2012 09:59:57
+///打印编译构建的日期和时间，类似：Dec  3 2012 09:59:57
 #define PRINT_BUILD_TIME {					\
 		printf(LIB_INF"Build time:\t"RED"%s %s"_COLOR"\n",\
-		 __DATE__, __TIME__);		\
+		 __DATE__, __TIME__);				\
+	}
+/// 打印输出当前位置的文件,函数,代码行数 Debug Print
+#define DP_HERE {						\
+	printf(LIB_DBG"[File:%s Line:%d] Fun:%s .\n",	\
+	__FILE__, __LINE__, __FUNCTION__);			\
+	}
+#define DP_RET(ret) {						\
+	printf(LIB_DBG"[File:%s Line:%d] Fun:%s ret %d .\n",	\
+	__FILE__, __LINE__, __FUNCTION__,(ret));		 	\
 	}
 class CDl719s: public CBASE102
 {

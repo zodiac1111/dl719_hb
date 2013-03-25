@@ -123,6 +123,7 @@ int CDl719s::Init(struct stPortConfig *tmp_portcfg)
 	m_suppwd = tmp_portcfg->m_usrsuppwd;
 	m_pwd1 = tmp_portcfg->m_usrpwd1;
 	m_pwd2 = tmp_portcfg->m_usrpwd2;
+	return 0;
 }
 CDl719s::~CDl719s()
 {
@@ -133,12 +134,11 @@ int CDl719s::dl719_synchead(unsigned char * data)
 {
 	if ((*data==0x68)&&(*(data+3)==0x68)) {
 		return 0;
-	}
-	else if ((*data==0x10)&&((*(data+2)==c_Link_Address_L)&&(*(data+3)==c_Link_Address_H)||(*(data+2)==0xff)&&(*(data+3)==0xff))) {
+	}else if ((*data==0x10)&&((*(data+2)==c_Link_Address_L)&&(*(data+3)==c_Link_Address_H)||(*(data+2)==0xff)&&(*(data+3)==0xff))) {
 		return 0;
-	}
-	else
+	}else{
 		return -1;
+	}
 }
 
 unsigned long CDl719s::RealTime_SSZ_Get(unsigned char Meter_No, unsigned char point)
@@ -186,9 +186,8 @@ void CDl719s::Send_MFrame(unsigned char cot)
 }
 
 /*------------------------------------------------------------
- ???͵?ǰ??��
- flag=0:?ܵ?��??flag=1:??ʱ??��
- ??ʱ??��????????Ϊ?ܼ???ƽ??5??��
+实时分时电量和实时总电量
+0-总电量 1-分时电量
  --------------------------------------------------------------*/
 int CDl719s::M_IT_NA_2(unsigned char flag)
 {
@@ -329,9 +328,8 @@ int CDl719s::M_IT_NA_2(unsigned char flag)
 }
 
 /*------------------------------------------------------------
- ??????ʷ??��
- flag=0:?ܵ?��??flag=1:??ʱ??��
- ??ʱ??��????????Ϊ?ܼ???ƽ??5??��
+ 历史电量
+ flag 0 总电量 1 分时电量
  --------------------------------------------------------------*/
 int CDl719s::M_IT_NA_T2(unsigned char flag)
 {
@@ -385,9 +383,7 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			Send_Total = sysConfig->meter_num*4;
 		}
 		//printf("Send_Total =%d\n",Send_Total);
-
 		m_IOA = c_Start_Info;     //20080302
-
 		Info_Size = flag ? (4*FEILVMAX+3) : 7;
 		Send_num = (MAXSENDBUF-DL719FIXLEN)/Info_Size;
 		Send_Times = Send_Total/Send_num;
@@ -456,7 +452,7 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			Send_MFrame(10);
 			// E5H_Yes();
 			Clear_Continue_Flag();
-			printf("m_ACD%d \n", m_ACD);
+			printf("m_ACD=%d \n", m_ACD);
 			return -4;
 		}
 		/*-----------------------------------------------
@@ -494,7 +490,7 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			//E5H_Yes();
 			return -5;
 		}
-		if (!flag)
+		if (!flag){
 			Circle = Search_CircleDBS(
 			                filename,
 			                c_Start_YL,
@@ -503,7 +499,7 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			                &Save_Num,
 			                &Save_XL[0],
 			                TASK_TE);
-		else
+		}else{
 			Circle = Search_CircleDBS(
 			                filename,
 			                c_Start_YL,
@@ -512,6 +508,7 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			                &Save_Num,
 			                &Save_XL[0],
 			                TASK_TOU);
+		}
 		/*-----------------------------------------------
 		 ????״̬???洢???ڴ???
 		 ------------------------------------------------*/
@@ -2297,9 +2294,7 @@ int CDl719s::M_QR_NA_T2()
 }
 
 /****************************************************************
- ????????:???????ڲ???ȡ????ʼʱ??????ֹʱ?䷶Χ??
- ??ȡ??ʷ?¼???¼??????????102??ʽ??
- ?
+ 读一个选定时间范围内的带时标的单点信息的记录
  *****************************************************************/
 int CDl719s::M_SP_TA_2N()
 {
@@ -2441,24 +2436,24 @@ void CDl719s::C_PL1_NA2(void)
 		printf(LIB_INF"对时 系统时间\n");
 		ret = M_SYN_TA_2();
 		break;
-	case C_CI_NC_2:     //??ǰ????��
+	case C_CI_NC_2:     //实时总电量
 		printf(LIB_INF"实时总电量\n");
 		ret = M_IT_NA_2(0);
 		break;
-	case C_CI_NQ_2:     //??ʷ????��
+	case C_CI_NQ_2:     //历史总电量
 		ret = M_IT_NA_T2(0);
 		printf("历史总电量 Te history ret %d \n", ret);
 		break;
-	case C_CI_NA_B_2:	//??ǰ??ʱ??��
+	case C_CI_NA_B_2:	//实时分时电量
 		printf(LIB_INF"实时分时电量\n");
 		ret = M_IT_NA_2(1);
 		break;
-	case C_CI_TA_B_2:	//??ʷ??ʱ??��
+	case C_CI_TA_B_2:	//历史分时电量
 		printf(LIB_INF"历史分时电量\n");
 		ret = M_IT_NA_T2(1);
 		printf("In c_PL1_NA2  ret %d \n", ret);
 		break;
-	case C_YC_NA_2:     //??ǰ˲ʱ��
+	case C_YC_NA_2:     //实时遥测电量
 		printf(LIB_INF"实时遥测电量\n");
 		ret = M_SSZ_NA_2();
 		break;
@@ -2510,6 +2505,7 @@ void CDl719s::C_PL1_NA2(void)
 		ret = M_CTL_PORT_Close();
 		break;
 	case C_SP_NB_2:
+		DP_HERE;
 		printf(LIB_INF"读一个选定时间范围内的带时标的单点信息的记录");
 		ret = M_SP_TA_2N();
 		printf(LIB_INF"M_SP_TA_2N ret=%d\n", ret);
@@ -2526,6 +2522,7 @@ int CDl719s::Process_Short_Frame(unsigned char *data)
 	c_func = *(data+1)&0x0f;
 	printf(LIB_INF"FC %d[0x%X]  \n",c_func,c_func);
 	if (c_func!=c_func_tmp){
+		//DP_RET(c_func)
 		c_FCB_Tmp = 0xff;
 	}
 	c_func_tmp = c_func;
@@ -2537,6 +2534,7 @@ int CDl719s::Process_Short_Frame(unsigned char *data)
 	}
 	c_FCB_Tmp = c_FCB;
 	c_FCV = *(data+1)&0x10;
+	//DP_RET(c_func)
 	printf("In %s m_func %d \n",__FUNCTION__,c_func);
 	switch (c_func) {
 	case 0:
