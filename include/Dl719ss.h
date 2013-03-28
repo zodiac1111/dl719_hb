@@ -39,6 +39,11 @@
 #define C_XX_TA_2  177  //指定地址范围内的四象限无功历史值
 #define C_LTOU_TA_2 178  //传送月末冻结电量
 #define C_TC_NA_1 211 //透抄表计当前数据
+//记录日志
+#define DEBUG_LOG 1
+#if DEBUG_LOG
+#define HB719_debug_log  "/mnt/nor/goahead.log"
+#endif
 //#define C_FILE_TRAN 175//文件传输
 //#define C_PARA_TRAN 190//参数上装
 //#define C_PARA_SET    191//参数下装
@@ -107,6 +112,13 @@ protected:
 	 控制端口报文监视开关0:off,1:on
 	 ---------------------------------------------------------------*/
 	unsigned char PORT_ON;
+	int Sequence_number;
+	int logic_Ertu_lo;
+	int logic_Ertu_hi;
+#if DEBUG_LOG
+	//本规约日志
+	FILE *fp_log;
+#endif
 private:
 };
 #endif

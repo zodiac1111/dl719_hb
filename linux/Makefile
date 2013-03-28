@@ -1,11 +1,19 @@
 host=1
 ifdef host
-#指定头文件路径(3个)和库文件路径
+#指定头文件路径(3个)和库文件路径 1.3
 INCS = -I../include \
-  -I/home/lee/test/mycheckout/hl3104/trunk/hl3104jd/软件/hl3104/include \
-  -I/home/lee/test/mycheckout/hl3104/trunk/hl3104jd/软件/hl3104/src/protocollib/base102/include
-LIB = /home/lee/test/mycheckout/hl3104/trunk/hl3104jd/软件/hl3104/lib
+ -I/home/lee/test/mycheckout/hl3104/trunk/hl3104-v1.3/include \
+  -I/home/lee/test/mycheckout/hl3104/trunk/hl3104-v1.3/src/protocollib/base102/include
+LIB = /home/lee/test/mycheckout/hl3104/trunk/hl3104-v1.3/lib
+
+#指定头文件路径(3个)和库文件路径 
+#INCS = -I../include \
+#  -I/home/lee/test/mycheckout/hl3104/trunk/hl3104jd/软件/hl3104/include \
+#  -I/home/lee/test/mycheckout/hl3104/trunk/hl3104jd/软件/hl3104/src/protocollib/base102/include
+#LIB = /home/lee/test/mycheckout/hl3104/trunk/hl3104jd/软件/hl3104/lib
+
 else
+
 INCS = -I../include -I../../../../include -I../../base102/include
 LIB = ../../../../lib
 endif
@@ -15,6 +23,8 @@ NAME    = Dl719ss
 SOURCE  =       ../src/Dl719ss.cpp
 CXXFLAGS = -DHL3104JD -Os
 LDFLAGS = -s
+MAKEDATE=\"$(shell date +%g:%m:%d:%H:%M)\"
+MARCO = -DMAKEDATE=$(MAKEDATE)
 all:$(NAME)
 $(NAME):$(SOURCE)
 	$(CC) $(LDFLAGS) $(CXXFLAGS) -shared $(MARCO) $(INCS) $^ -o lib$@.so $(LIBS) # -Wall

@@ -11,7 +11,9 @@
 #include "log.h"
 #include "Hisfile.h"
 #include "color.h"
-
+#include <time.h>
+#define PROTOCOL_VERSION 0x101
+GET_DLL_VERSION
 //unsigned char ERTU_TIME_CHECK;
 int MsgQid;
 unsigned char Main_Update_OK;
@@ -46,15 +48,13 @@ void CDl719s::Read_Command_Time(unsigned char * data)
 		c_Start_YL = data[19]&0x7f;
 		c_End_MON = data[23]&0x0f;
 		c_End_YL = data[24]&0x7f;
-		if (c_Start_MON==12)
-		                {
+		if (c_Start_MON==12) {
 			c_Start_MON = 1;
 			c_Start_YL++;
-		}
-		else
+		}else{
 			c_Start_MON++;
-		if (c_End_MON==12)
-		                {
+		}
+		if (c_End_MON==12) {
 			c_End_MON = 1;
 			c_End_YL++;
 		}
@@ -114,6 +114,9 @@ CDl719s::CDl719s()
 	c_TI_tmp = 0xff;
 
 	memset(mirror_buf, 0, sizeof(mirror_buf));
+#if DEBUG_LOG
+	this->fp_log=fopen(HB719_debug_log,"a");
+#endif
 }
 int CDl719s::Init(struct stPortConfig *tmp_portcfg)
 {
@@ -123,11 +126,14 @@ int CDl719s::Init(struct stPortConfig *tmp_portcfg)
 	m_suppwd = tmp_portcfg->m_usrsuppwd;
 	m_pwd1 = tmp_portcfg->m_usrpwd1;
 	m_pwd2 = tmp_portcfg->m_usrpwd2;
+	this->Sequence_number=0;
 	return 0;
 }
 CDl719s::~CDl719s()
 {
-
+#if DEBUG_LOG
+	fclose(this->fp_log);
+#endif
 }
 
 int CDl719s::dl719_synchead(unsigned char * data)
@@ -243,8 +249,7 @@ int CDl719s::M_IT_NA_2(unsigned char flag)
 
 	if (Send_RealTimes<Send_Times-1) {
 		m_VSQ = Send_num;
-	}
-	else {
+	} else {
 		m_VSQ = Send_Total-Send_num*Send_RealTimes;
 		/*-------------------------------------------------
 		 ???????ݴ??????ϱ?־
@@ -265,11 +270,12 @@ int CDl719s::M_IT_NA_2(unsigned char flag)
 	m_transBuf.m_transceiveBuf[buffptr++ ] = c_Dev_Address_L;
 	m_transBuf.m_transceiveBuf[buffptr++ ] = c_Dev_Address_H;
 	m_transBuf.m_transceiveBuf[buffptr++ ] = c_Record_Addr;
+	printf(LIB_DBG"实时总(分时)电量 信息体地址:%d \n",c_Record_Addr);
 	for (i = 0; i<m_VSQ; i++) {
 		mtr_no = m_IOA/4;
 		info_no = m_IOA%4;
 		m_transBuf.m_transceiveBuf[buffptr++ ] = m_IOA;
-		if (!flag) {
+		if (!flag) {//总电量
 			e_val = 1000*m_meterData[mtr_no].m_iTOU[5*info_no];
 			e_flag = m_meterData[mtr_no].Flag_TOU&(1<<5*info_no);
 			TransLong2BinArray(
@@ -283,8 +289,7 @@ int CDl719s::M_IT_NA_2(unsigned char flag)
 				sum += m_transBuf.m_transceiveBuf[buffptr-6+j];
 			m_transBuf.m_transceiveBuf[buffptr++ ] = sum;     //jiao yan he
 
-		}
-		else {
+		} else {//分时电量
 			for (j = 0; j<FEILVMAX; j++) {
 				e_val =
 				                1000*m_meterData[mtr_no].m_iTOU[5*info_no+j];
@@ -328,8 +333,11 @@ int CDl719s::M_IT_NA_2(unsigned char flag)
 }
 
 /*------------------------------------------------------------
- 历史电量
- flag 0 总电量 1 分时电量
+ 历史电量 typ 120 一定时间范围和地址范围的电量信息 回复typ 2
+ flag 0 总电量 1 分时电量+总电量
+ 根据RAD区分缓冲区1还是缓冲区2/3
+ RAD 11 = 缓冲区1  = 4个基础总电量 正有 反有 正无 反无
+ RAD 12(13) =缓冲区2(3) 22个扩展量
  --------------------------------------------------------------*/
 int CDl719s::M_IT_NA_T2(unsigned char flag)
 {
@@ -344,26 +352,47 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 	struct m_tSystime systime;
 	float value;
 	unsigned int val;
+	printf(LIB_DBG YELLOW"************  进入  *************\n"_COLOR);
 	if (m_Resend) {
+		printf(LIB_DBG"重发\n");
 		m_transBuf.m_transCount = m_LastSendBytes;
 		m_Resend = 0;
 		return 0;
 	}
-
+	//printf(LIB_DBG"120 指定地址范围和时间范围的电量信息\n");
 	if (Send_DataEnd) {
+		printf(LIB_DBG"结束数据传输\n");
 		Clear_Continue_Flag();
-
 		Send_MFrame(10);
 		//E5H_Yes();
 		return 0;
 	}
 
 	if (!Continue_Flag&&!Continue_Step_Flag) {
+		printf(LIB_DBG"数据传输中\n");
 		/*------------------------------
 		 ??ʼ??֡??־
 		 --------------------------------*/
 		m_COT = 5;
-		m_TI = flag ? M_IT_TA_B_2 : M_IT_TA_2;
+		printf(LIB_DBG"缓冲区值(RAD):%d\n",this->c_Record_Addr);
+		if(c_Record_Addr==0 ||c_Record_Addr==11){
+			printf(LIB_DBG"缓冲区1\n");
+			flag=0;
+		}else if(c_Record_Addr==12){
+			printf(LIB_DBG"缓冲区2\n");
+			flag=1;
+		}else if(c_Record_Addr==13){
+			printf(LIB_DBG"缓冲区3\n");
+			flag=1;
+		}else{
+			printf(LIB_DBG"缓冲区错误:%d 没有这个RAD(缓冲区)\n",c_Record_Addr);
+			Clear_Continue_Flag();
+			Send_MFrame(10);
+			return -1000;
+		}
+		//m_TI = flag ? M_IT_TA_B_2 : M_IT_TA_2;
+		//不管缓冲区几都是typ2回复,通过rad区分数据类型
+		m_TI = flag ? M_IT_TA_2 : M_IT_TA_2;
 		if (c_Stop_Info>=sysConfig->meter_num*4) {
 			c_Stop_Info = sysConfig->meter_num*4;
 		}
@@ -438,6 +467,7 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			//printf("m_ACD=%d \n",m_ACD);
 			return -3;
 		}
+		//保存的数据的起始时刻
 		T4 = Calc_Time_102(
 		                Start_MIN,
 		                Start_H,
@@ -451,6 +481,24 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 		if ((T1>T3)||(T2<T4)||(T1>T2)) {
 			Send_MFrame(10);
 			// E5H_Yes();
+			if(T1>T3){
+				printf(LIB_DBG"T1>T3 起始时刻属于未来 [___] B \n");
+			}
+			if(T2<T4){
+				printf(LIB_DBG"T2<T4 结束时刻小于最早记录时刻 E [___]\n");
+			}
+			if(T1>T2){
+				printf(LIB_DBG"T1>T2 起始时刻大于结束时刻 End___Begin X \n");
+			}
+			printf(LIB_DBG"开始T1=%d \n结束T2=%d\n "
+				"当前T3=%d \nT4=%d\n",T1,T2,T3,T4);
+			printf(LIB_DBG"T1=%d-%d-%d %d:%d\n"
+					,c_Start_YL,c_Start_MON,c_Start_D
+					,c_Start_H,c_Start_MIN);
+			printf(LIB_DBG"T2=%d-%d-%d %d:%d\n"
+					,c_End_YL,c_End_MON,c_End_D,c_End_H,c_End_MIN);
+			printf(LIB_DBG"T4=%d-%d-%d %d:%d\n"
+				,Start_YL,Start_MON,Start_D,Start_H,Start_MIN);
 			Clear_Continue_Flag();
 			printf("m_ACD=%d \n", m_ACD);
 			return -4;
@@ -467,20 +515,23 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 		if (T2>=T3)
 			T2 = T3;
 
-		if (!flag)
+		if (!flag){
+			printf(LIB_DBG"总电量\n");
 			ret = GetFileName_Day(
 			                &filename,
 			                c_Start_MON,
 			                c_Start_D,
 			                c_Start_Info/4,
 			                TASK_TE);
-		else
+		}else{
+			printf(LIB_DBG"分时电量\n");
 			ret = GetFileName_Day(
 			                &filename,
 			                c_Start_MON,
 			                c_Start_D,
 			                c_Start_Info/4,
 			                TASK_TOU);
+		}
 		/*-----------------------------------------------
 		 ????״̬?????????ݿ?????
 		 ------------------------------------------------*/
@@ -538,7 +589,7 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 		else if (T2>=T3)
 			Steps = (T3-T1)/Circle+1;
 		printf(
-		                "In history te T1=%d,T2=%d.T3=%d,T4=%d,steps=%d \n",
+		               LIB_DBG"In history te T1=%d,T2=%d.T3=%d,T4=%d,steps=%d \n",
 		                T1,
 		                T2,
 		                T3,
@@ -559,14 +610,12 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 		Continue_Step_Flag = 1;
 		Send_RealTimes = 0;
 		SendT_RealTimes = 0;
-	}
-	else if (!Continue_Flag&&Continue_Step_Flag) {
+	} else if (!Continue_Flag&&Continue_Step_Flag) {
 		Continue_Flag = 1;
 		Send_RealTimes = 0;
 		m_IOA = c_Start_Info;     //20080302
 		SendT_RealTimes++;
-	}
-	else if (Continue_Flag&&Continue_Step_Flag) {
+	} else if (Continue_Flag&&Continue_Step_Flag) {
 		Send_RealTimes++;
 	}
 	/*----------------------------------------------------------
@@ -576,14 +625,12 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 	if (Send_RealTimes>=Send_Times-1) {
 		if (SendT_RealTimes==Steps-1) {
 			Send_DataEnd = 1;
-		}
-		else {
+		} else {
 			Continue_Flag = 0;
 		}
 		m_VSQ = Send_Total-Send_num*Send_RealTimes;
 		//printf("Send_Total =%d\n",Send_Total);
-	}
-	else {
+	} else {
 		m_VSQ = Send_num;
 	}
 	buffptr = 0;
@@ -597,8 +644,8 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 	m_transBuf.m_transceiveBuf[buffptr++ ] = m_TI;
 	m_transBuf.m_transceiveBuf[buffptr++ ] = m_VSQ;
 	m_transBuf.m_transceiveBuf[buffptr++ ] = m_COT;
-	m_transBuf.m_transceiveBuf[buffptr++ ] = c_Dev_Address_L;
-	m_transBuf.m_transceiveBuf[buffptr++ ] = c_Dev_Address_H;
+	m_transBuf.m_transceiveBuf[buffptr++ ] = logic_Ertu_lo;
+	m_transBuf.m_transceiveBuf[buffptr++ ] = logic_Ertu_hi;
 	m_transBuf.m_transceiveBuf[buffptr++ ] = c_Record_Addr;
 
 	c_HisSendT = c_HisStartT+c_CircleTime*SendT_RealTimes;     //??ʷ?洢??ʱ??
@@ -610,17 +657,27 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 	Start_MON = backTime[3];
 	Start_YL = backTime[4];
 	printf(
-	                "Start_YL=%d,Start_MON=%d,Start_D=%d,Start_H=%d,Start_MIN=%d\n",
+	                LIB_DBG"Start_YL=%d,Start_MON=%d,Start_D=%d,Start_H=%d,Start_MIN=%d\n",
 	                Start_YL,
 	                Start_MON,
 	                Start_D,
 	                Start_H,
 	                Start_MIN);
 	//printf("m_VSQ %d\n",m_VSQ);
+	//序列号
+	this->Sequence_number++;
+	int ov;
+	if(Sequence_number>0b1111){
+		ov=0b1;
+		Sequence_number=0;
+	}else{
+		ov=0;
+	}
 	for (i = 0; i<m_VSQ; i++) {
 		mtr_no = (m_IOA-1)/4;
 		inf_no = (m_IOA-1)%4;
 		m_transBuf.m_transceiveBuf[buffptr++ ] = m_IOA;     //20080302
+		//获取储存文件名
 		if (!flag)
 			ret = GetFileName_Day(
 			                &filename,
@@ -635,6 +692,11 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			                Start_D,
 			                mtr_no,
 			                TASK_TOU);
+		printf(LIB_DBG"信息体数目m_VSQ:%d/%d ,信息体地址 ioa: %d\n"
+			LIB_DBG	"表号 %d 表内增量 %d\n"
+			LIB_DBG	"时刻 %d-%d-%d %d:%d\n"
+			,i,m_VSQ,m_IOA,mtr_no,inf_no
+			, backTime[4], backTime[3], backTime[2], backTime[1], backTime[0]);
 		printf("TE history trans filename is %s\n", filename.c_str());
 		/*-----------------------------------------------
 		 ????״̬???ļ??????ڻ????Ѿ?????
@@ -645,7 +707,8 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			//E5H_Yes();
 			return -7;
 		}
-		if (!flag)
+		if (!flag){
+			printf(LIB_DBG"总电量 查询周期\n");
 			Circle = Search_CircleDBS(
 			                filename,
 			                Start_YL,
@@ -654,7 +717,8 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			                &Save_Num,
 			                Save_XL,
 			                TASK_TE);
-		else
+		}else{
+			printf(LIB_DBG"分时电量 查询周期\n");
 			Circle = Search_CircleDBS(
 			                filename,
 			                Start_YL,
@@ -663,7 +727,7 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			                &Save_Num,
 			                Save_XL,
 			                TASK_TOU);
-
+		}
 		/*-----------------------------------------------
 		 ????״̬?????ݴ洢???ڹ???
 		 ------------------------------------------------*/
@@ -674,7 +738,7 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			return -8;
 		}
 
-		if (!flag) {
+		if (!flag) { //总电量
 			GetDnlSSlDataDBS(
 			                tempData,
 			                filename,
@@ -686,18 +750,40 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			                TASK_TE);
 			memcpy(&value, tempData, 4);
 			val = value*1000;
+			printf(LIB_DBG"总电量 取数据 val=%d\n",val);
 			memcpy(tempData, &val, 4);
 			memcpy(
 			                &m_transBuf.m_transceiveBuf[buffptr],
 			                tempData,
 			                5);
 			buffptr += 5;
+			/** 数据有效字节
+			 * 7  6  5  4  3 2 1 0
+			 * IV,CA,CY,LW  序列号
+			 */
+			//数据有效,溢出,序列号位
+			m_transBuf.m_transceiveBuf[buffptr-1]|=this->Sequence_number;
+			m_transBuf.m_transceiveBuf[buffptr-1]|=(ov<6);
 			sum = 0;
+			//电量校验和
+#define  TI_CHK_SUM 2 //是否需要电能量数据保护校验
+#if TI_CHK_SUM ==1
 			for (j = 0; j<6; j++)
 				sum += m_transBuf.m_transceiveBuf[buffptr-6+j];
+
+#elif TI_CHK_SUM==2 //另一种校验和方式,多种数据一起校验,TODO
+			sum=m_TI+logic_Ertu_lo+logic_Ertu_hi+c_Record_Addr;
+			sum+=backTime[0];
+			sum+=backTime[1];
+			sum+=backTime[2];
+			sum+=backTime[3];
+			sum+=backTime[4];
+			for(j=0;j<6;j++)
+				sum+=m_transBuf.m_transceiveBuf[buffptr-6+j];
+
+#endif
 			m_transBuf.m_transceiveBuf[buffptr++ ] = sum;
-		}
-		else {
+		}else {
 			Save_BZ = 0x80;
 
 			for (j = 0; j<FEILVMAX; j++) {
@@ -741,8 +827,7 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			                tempData[4]&tempData[9]&tempData[14]&tempData[19]&tempData[24];
 			sum = 0;
 			for (j = 0; j<1+4*FEILVMAX+1; j++)
-				sum +=
-				                m_transBuf.m_transceiveBuf[buffptr-(2+4*FEILVMAX)+j];
+				sum += m_transBuf.m_transceiveBuf[buffptr-(2+4*FEILVMAX)+j];
 			m_transBuf.m_transceiveBuf[buffptr++ ] = sum;
 		}
 		m_IOA++;
@@ -764,8 +849,8 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 /*========== ============== ????˲ʱ��(171/161)==========================*/
 
 /*------------------------------------------------------------
- ??????ʷ˲ʱֵ
- ÿ????Ϣ????��????????ң??��??3U,3I,4P,4Q,4PF,1F
+ 实时遥测电量
+  ÿ????Ϣ????��????????ң??��??3U,3I,4P,4Q,4PF,1F
  ÿ????Ϣ????1?ֽ???Ϣ????ַ+19*4?ֽ?????+1?ֽ?Ʒ??+1?ֽ?????У??????
  --------------------------------------------------------------*/
 int CDl719s::M_SSZ_NA_2()
@@ -824,8 +909,7 @@ int CDl719s::M_SSZ_NA_2()
 
 	if (Send_RealTimes<Send_Times-1) {
 		m_VSQ = Send_num;
-	}
-	else {
+	} else {
 		m_VSQ = Send_Total-Send_num*Send_RealTimes;
 		/*-------------------------------------------------
 		 ???????ݴ??????ϱ?־
@@ -912,8 +996,8 @@ int CDl719s::M_SSZ_NA_2()
 	return 0;
 }
 /*------------------------------------------------------------
- ??????ʷ˲ʱֵ
- ÿ????Ϣ????��????????ң??��??3U,3I,4P,4Q,4PF,1F
+ 历史遥测电量
+  ÿ????Ϣ????��????????ң??��??3U,3I,4P,4Q,4PF,1F
  ÿ????Ϣ????1?ֽ???Ϣ????ַ+19*4?ֽ?????+1?ֽ?Ʒ??+1?ֽ?????У??????
  --------------------------------------------------------------*/
 int CDl719s::M_SSZ_NA_T2()
@@ -2305,6 +2389,7 @@ int CDl719s::M_SP_TA_2N()
 	unsigned long T1, T2;
 	int ret;
 	if (m_Resend) {
+		DP_HERE;
 		m_transBuf.m_transCount = m_LastSendBytes;
 		m_Resend = 0;
 		return 0;
@@ -2442,7 +2527,7 @@ void CDl719s::C_PL1_NA2(void)
 		break;
 	case C_CI_NQ_2:     //历史总电量
 		ret = M_IT_NA_T2(0);
-		printf("历史总电量 Te history ret %d \n", ret);
+		printf(LIB_INF"历史总电量 Te history ret %d \n", ret);
 		break;
 	case C_CI_NA_B_2:	//实时分时电量
 		printf(LIB_INF"实时分时电量\n");
@@ -2483,7 +2568,7 @@ void CDl719s::C_PL1_NA2(void)
 		break;
 	case C_LTOU_TA_2:
 		printf(LIB_INF"月冻结电量 Process ldd history!\n");
-//			ret=M_Last_Month_TOU();
+//		ret=M_Last_Month_TOU();
 		printf("In c_PL1_NA2  ret %d \n", ret);
 		break;
 	case C_PARA_TRAN:
@@ -2505,7 +2590,6 @@ void CDl719s::C_PL1_NA2(void)
 		ret = M_CTL_PORT_Close();
 		break;
 	case C_SP_NB_2:
-		DP_HERE;
 		printf(LIB_INF"读一个选定时间范围内的带时标的单点信息的记录");
 		ret = M_SP_TA_2N();
 		printf(LIB_INF"M_SP_TA_2N ret=%d\n", ret);
@@ -2787,9 +2871,17 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 			printf("Process TE !\n");
 			c_TI = C_CI_NQ_2;
 			m_ACD = 1;
+			//逻辑扩展地址,从1开始
+			logic_Ertu_lo=*(data+10);
+			logic_Ertu_hi=*(data+11);
+			printf(LIB_DBG"逻辑设备地址 低:%d 高:%d\n"
+				,logic_Ertu_lo,logic_Ertu_hi);
 			c_Record_Addr = *(data+12);
-			c_Start_Info = *(data+13);
-			c_Stop_Info = *(data+14);
+			//扩展的终端逻辑地址,从1开始,当ioa每增加255时加1
+			int ioa_weight;
+			ioa_weight=(logic_Ertu_hi*255+logic_Ertu_lo)-1;
+			c_Start_Info =ioa_weight*255+ *(data+13);
+			c_Stop_Info =ioa_weight*255+ *(data+14);
 			Read_Command_Time(data);
 			E5H_Yes();
 			Command = C_CON_ACT;
@@ -3077,6 +3169,28 @@ int printArray(unsigned char* a, int n)
 	}
 	//printf("\n");
 }
+///打印数组
+int fprintArray(FILE* fp,unsigned char* a, int n)
+{
+
+	for (int i = 0; i<n; i++) {
+		fprintf(fp,"%02X ", a[i]);
+	}
+	return 0;
+	//printf("\n");
+}
+int fprintf_now(FILE *fp)
+{
+	time_t t;
+	struct tm stm;
+	t=time(NULL);
+	gmtime_r(&t,&stm);
+	fprintf(fp,"%02d-%02d %02d:%02d:%02d",
+		/*stm.tm_year+1900,*/stm.tm_mon+1,stm.tm_mday,
+		stm.tm_hour,stm.tm_min,stm.tm_sec);
+	fflush(fp);
+	return 0;
+}
 int CDl719s::dl719_Recieve()
 {
 	unsigned char len, reallen;
@@ -3108,6 +3222,15 @@ int CDl719s::dl719_Recieve()
 			printf(LIB_INF"Rece <<< ");
 			printArray(readbuf, reallen);
 			printf("\n");
+#if DEBUG_LOG
+			fprintf(this->fp_log,"RX");
+			fprintf(this->fp_log,"[");
+			fprintf_now(this->fp_log);
+			fprintf(this->fp_log,"] ");
+			fprintArray(this->fp_log,readbuf, reallen);
+			fprintf(this->fp_log,"\n");
+			fflush(this->fp_log);
+#endif
 //			printf("dl719 recieve:");
 //			for(int i=0;i<reallen;i++){
 //				printf(" %02x",readbuf[i]);
@@ -3117,6 +3240,16 @@ int CDl719s::dl719_Recieve()
 			printf(LIB_INF"Send >>> ");
 			printArray(m_transBuf.m_transceiveBuf, m_transBuf.m_transCount);
 			printf("\n");
+#if DEBUG_LOG
+			fprintf(this->fp_log,"TX");
+			fprintf(this->fp_log,"[");
+			fprintf_now(this->fp_log);
+			fprintf(this->fp_log,"] ");
+			fprintArray(this->fp_log,
+				m_transBuf.m_transceiveBuf,  m_transBuf.m_transCount);
+			fprintf(this->fp_log,"\n");
+			fflush(this->fp_log);
+#endif
 			return len;
 		} else {
 			return -2;
