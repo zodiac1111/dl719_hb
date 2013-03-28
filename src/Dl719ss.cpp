@@ -393,11 +393,16 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 		//m_TI = flag ? M_IT_TA_B_2 : M_IT_TA_2;
 		//不管缓冲区几都是typ2回复,通过rad区分数据类型
 		m_TI = flag ? M_IT_TA_2 : M_IT_TA_2;
-		if (c_Stop_Info>=sysConfig->meter_num*4) {
+		//缓冲区1 4个基本量
+		if (flag==0 && c_Stop_Info>=sysConfig->meter_num*4) {
 			c_Stop_Info = sysConfig->meter_num*4;
 		}
+		//缓冲区2 22个扩展量
+		if (flag==1 && c_Stop_Info>=sysConfig->meter_num*22) {
+			c_Stop_Info = sysConfig->meter_num*22;
+		}
 		/*-----------------------------------------------
-		 ????״̬????Ϣ????ַ??Χ????
+		 ioa范围判断
 		 ------------------------------------------------*/
 		if (c_Stop_Info<=c_Start_Info) {
 			Clear_Continue_Flag();
@@ -676,7 +681,8 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 	for (i = 0; i<m_VSQ; i++) {
 		mtr_no = (m_IOA-1)/4;
 		inf_no = (m_IOA-1)%4;
-		m_transBuf.m_transceiveBuf[buffptr++ ] = m_IOA;     //20080302
+		//信息体地址,ioa字节仅取1-255 多的进位的有逻辑设备地址logic ertu确定
+		m_transBuf.m_transceiveBuf[buffptr++ ] = m_IOA%256; //20080302
 		//获取储存文件名
 		if (!flag)
 			ret = GetFileName_Day(
@@ -2613,8 +2619,8 @@ int CDl719s::Process_Short_Frame(unsigned char *data)
 	c_FCB = *(data+1)&0x20;
 	if ((c_FCB_Tmp==c_FCB)&&((c_func==0x0a)||(c_func==0x0b))){
 		printf(LIB_INF"FCB 原始 %X ,现在 %X \n",c_FCB_Tmp,c_FCB);
-		m_transBuf.m_transCount = m_LastSendBytes;
-		return 0;
+		//m_transBuf.m_transCount = m_LastSendBytes;
+		//return 0;
 	}
 	c_FCB_Tmp = c_FCB;
 	c_FCV = *(data+1)&0x10;
@@ -2783,6 +2789,7 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 	c_FCB = *(data+4)&0x20;
 	c_func = *(data+4)&0x0f;
 	if (c_FCB==c_FCB_Tmp) {
+		printf(LIB_INF"重发\n");
 		m_transBuf.m_transCount = m_LastSendBytes;
 		return 0;
 	}

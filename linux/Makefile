@@ -4,7 +4,7 @@ ifdef host
 INCS = -I../include \
  -I/home/lee/test/mycheckout/hl3104/trunk/hl3104-v1.3/include \
   -I/home/lee/test/mycheckout/hl3104/trunk/hl3104-v1.3/src/protocollib/base102/include
-LIB = /home/lee/test/mycheckout/hl3104/trunk/hl3104-v1.3/lib
+LIB = /home/lee/test/mycheckout/hl3104/trunk/hl3104jd/软件/hl3104/lib
 
 #指定头文件路径(3个)和库文件路径 
 #INCS = -I../include \
