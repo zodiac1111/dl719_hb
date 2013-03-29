@@ -2724,7 +2724,117 @@ int CDl719s::M_QR_NA_T2()
 	m_LastSendBytes = m_transBuf.m_transCount;
 	return 0;
 }
+/****************************************************************
+ 读一个全部/一定数量的单点信息的记录
+ *****************************************************************/
+int CDl719s::M_SP_NA_2N()
+{
+	unsigned char tempsum = 0;
+	unsigned int ptr = 0, j = 0;
+	unsigned char Start_YL, Start_MON, Start_D, Start_MIN, Start_H;
+	unsigned char temp_buf[264];
+	unsigned long T1, T2;
+	int ret;
+	if (m_Resend) {
+		DP_HERE;
+		m_transBuf.m_transCount = m_LastSendBytes;
+		m_Resend = 0;
+		return 0;
+	}
+	memset(temp_buf, 0, sizeof(temp_buf));
+	m_COT = 0x05;
+	m_TI = 1;
+	m_VSQ = 0;
+	if (Continue_Flag==1) {
+		//printf("df102->Continue_Flag=YES enter continue send data\n");
+		goto CONSDEVT;
+	}
+	//df102->Continue_Flag=YES;
+	CONSDEVT:
+	if (Continue_Flag==1){
+		if (!SendT_RealTimes){
+			Clear_Continue_Flag();
+			Send_MFrame(10);
+			//E5H_Yes();
+			SendT_RealTimes = 0;
+			return -1;
+		}
+	}
 
+	//printf("@@@start enter read history event!&&&&&&& SendT_RealTimes=%d\n",SendT_RealTimes);
+	//ret=read_hisevt(temp_buf, T1, T2, SendT_RealTimes);
+	unsigned char evt_num=0;
+	ret=Read_Cur_Evt(temp_buf,&evt_num);
+	printf(LIB_DBG"ent_num=%d\n",evt_num);
+	/*ret = ReadSomeRecord(
+	                temp_buf,
+	                T1,
+	                T2,
+	                SendT_RealTimes,
+	                LEN_PER_HISEVT,
+	                EVENTFILE,
+	                MAXEVENT,
+	                1);
+*/
+	// printf("@@@read out history event,ret=%d!&&&&&&\n,  ",ret);
+//	 for(j=0;j<200;j++)
+//	 printf(" %02x",temp_buf[j]);
+//	 printf("\n");
+
+	if ((ret<0)||(!temp_buf[0])){
+		printf(LIB_INF"ret=%d temp_buf[0]=%d\n",ret,temp_buf[0]);
+		Clear_Continue_Flag();
+		Send_MFrame(10);
+		//E5H_Yes();
+		SendT_RealTimes = 0;
+		return -2;
+	}
+	if (!temp_buf[3]){
+		SendT_RealTimes = 0;
+	}else{
+		SendT_RealTimes = temp_buf[1]+temp_buf[2]*0x100;
+	}
+	if (!Continue_Flag){
+		c_HisStartT =
+		                temp_buf[4]+temp_buf[5]*0x100+temp_buf[6]*0x10000+temp_buf[7]*0x1000000;
+		c_HisSendT =
+		                temp_buf[8]+temp_buf[9]*0x100+temp_buf[10]*0x10000+temp_buf[11]*0x1000000;
+	}
+	m_VSQ = temp_buf[0];
+	printf("@@@df102->VSQ = %d!&&&&&&  \n", m_VSQ);
+
+	ptr = 0;
+	m_transBuf.m_transceiveBuf[ptr++ ] = 0x68;
+	m_transBuf.m_transceiveBuf[ptr++ ] = 9+m_VSQ*9;
+	m_transBuf.m_transceiveBuf[ptr++ ] = 9+m_VSQ*9;
+	m_transBuf.m_transceiveBuf[ptr++ ] = 0x68;
+
+	m_transBuf.m_transceiveBuf[ptr++ ] = m_ACD ? 0x028 : 0x08;	//??????
+	m_transBuf.m_transceiveBuf[ptr++ ] = c_Dev_Address_L;
+	m_transBuf.m_transceiveBuf[ptr++ ] = c_Dev_Address_H;
+	m_transBuf.m_transceiveBuf[ptr++ ] = m_TI;     //???ͱ?ʶ
+	m_transBuf.m_transceiveBuf[ptr++ ] = m_VSQ;     //???巢????Ϣ??????
+	m_transBuf.m_transceiveBuf[ptr++ ] = m_COT;     //????ԭ??
+	m_transBuf.m_transceiveBuf[ptr++ ] = c_Link_Address_L;
+	m_transBuf.m_transceiveBuf[ptr++ ] = c_Link_Address_H;
+	m_transBuf.m_transceiveBuf[ptr++ ] = c_Record_Addr;
+	for (j = 0; j<m_VSQ; j++){
+		memcpy(m_transBuf.m_transceiveBuf+ptr, temp_buf+12+j*9, 9);
+		ptr += 9;
+	}
+	tempsum = 0;
+	for (j = 4; j<ptr; j++)
+		tempsum += m_transBuf.m_transceiveBuf[j];
+	m_transBuf.m_transceiveBuf[ptr++ ] = tempsum;
+	m_transBuf.m_transceiveBuf[ptr++ ] = 0x16;
+	m_transBuf.m_transCount = ptr;
+	m_LastSendBytes = m_transBuf.m_transCount;
+	printf(
+	                "@@@m_transBuf.m_transCount = %d!&&&&&&  \n",
+	                m_transBuf.m_transCount);
+	Continue_Flag = 1;
+	return 0;
+}
 /****************************************************************
  读一个选定时间范围内的带时标的单点信息的记录
  *****************************************************************/
@@ -2946,6 +3056,11 @@ void CDl719s::C_PL1_NA2(void)
 		printf(LIB_INF"读一个选定时间范围内的带时标的单点信息的记录\n");
 		ret = M_SP_TA_2N();
 		printf(LIB_INF"M_SP_TA_2N ret=%d\n", ret);
+		break;
+	case C_SP_NA_2:
+		printf(LIB_INF"读单点信息的记录\n");
+		ret = M_SP_NA_2N();
+		printf(LIB_INF"C_SP_NA_2 ret=%d\n", ret);
 		break;
 	default:
 		printf(LIB_ERR"未知的type %d[%X]\n",c_TI,c_TI);
@@ -3174,7 +3289,6 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 			E5H_Yes();
 			Command = C_CON_ACT;
 			break;
-
 		case C_TI_NB_2:    //读电能量终端设备的当前系统时间
 			printf("Read system time !\n");
 			c_TI = C_TI_NB_2;
@@ -3435,6 +3549,13 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 			//E5H_Yes();
 			//Command=C_CON_ACT;
 			Send_MFrame(10);
+			break;
+		case C_SP_NA_2:
+			c_TI = C_SP_NA_2;
+			m_ACD = 1;
+			c_Record_Addr = *(data+12);
+			E5H_Yes();
+			Command = C_CON_ACT;
 			break;
 		case C_SP_NB_2:
 			/*

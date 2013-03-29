@@ -97,7 +97,7 @@ void CBASE102:: M_NV_NA_2(unsigned char flag)
 		m_transBuf.m_transceiveBuf[1]=0x29;//0x09;
 	}
 	if(m_ACD){
-			m_transBuf.m_transceiveBuf[1]|=0x20;
+		m_transBuf.m_transceiveBuf[1]|=0x20;
 	}
 	m_transBuf.m_transceiveBuf[2]=c_Link_Address_L;
 	m_transBuf.m_transceiveBuf[3]=c_Link_Address_H;

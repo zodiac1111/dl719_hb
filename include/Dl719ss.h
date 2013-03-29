@@ -100,6 +100,7 @@ protected:
 	int M_SYN_TA_2();
 	int M_Return_SysTime();
 	int M_SP_TA_2N();
+	int M_SP_NA_2N();//全部单点信息
 	unsigned long RealTime_SSZ_Get(unsigned char Meter_No, unsigned char point);
 	/*------------------------------------------------------
 	 主站命令镜像
