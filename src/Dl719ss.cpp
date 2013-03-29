@@ -122,6 +122,7 @@ int CDl719s::Init(struct stPortConfig *tmp_portcfg)
 {
 	c_Link_Address_H = tmp_portcfg->m_ertuaddr>>8;
 	c_Link_Address_L = (unsigned char) tmp_portcfg->m_ertuaddr;
+	printf(LIB_DBG"tmp_portcfg->m_ertuaddr= %04X \n",tmp_portcfg->m_ertuaddr);
 	m_checktime_valifalg = tmp_portcfg->m_checktime_valiflag;
 	m_suppwd = tmp_portcfg->m_usrsuppwd;
 	m_pwd1 = tmp_portcfg->m_usrpwd1;
@@ -344,7 +345,8 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 	unsigned char mtr_no, inf_no;
 	unsigned char buffptr, i, j, e_quality, sum, Save_BZ, Save_Have;
 	unsigned char Start_YL, Start_MON, Start_D, Start_MIN, Start_H;
-	unsigned short Circle;
+	unsigned short Circle;//周期(总尖峰平谷+正有/反有
+	unsigned short Circle_4R;//4象限
 	unsigned char Save_Point, Save_XH, m;
 	int ret;
 	unsigned long T1, T2, T3, T4, e_val;
@@ -364,10 +366,26 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 		printf(LIB_DBG"结束数据传输\n");
 		Clear_Continue_Flag();
 		Send_MFrame(10);
-		//E5H_Yes();
 		return 0;
 	}
-
+#if 1
+	printf(LIB_DBG"缓冲区值(RAD):%d\n",this->c_Record_Addr);
+	if(c_Record_Addr==0 ||c_Record_Addr==11){
+		printf(LIB_DBG"缓冲区1\n");
+		flag=0;
+	}else if(c_Record_Addr==12){
+		printf(LIB_DBG"缓冲区2\n");
+		flag=1;
+	}else if(c_Record_Addr==13){
+		printf(LIB_DBG"缓冲区3\n");
+		flag=1;
+	}else{
+		printf(LIB_DBG"缓冲区错误:%d 没有这个RAD(缓冲区)\n",c_Record_Addr);
+		Clear_Continue_Flag();
+		Send_MFrame(10);
+		return -1000;
+	}
+#endif
 	if (!Continue_Flag&&!Continue_Step_Flag) {
 		printf(LIB_DBG"数据传输中\n");
 		/*------------------------------
@@ -410,15 +428,18 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			//E5H_Yes();
 			return -1;
 		}
-
 		Send_Total = c_Stop_Info-c_Start_Info+1;
 		//printf("Send_Total =%d\n",Send_Total);
-		if (Send_Total>=sysConfig->meter_num*4) {
+		if (flag==0 &&  Send_Total>=sysConfig->meter_num*4) {
 			Send_Total = sysConfig->meter_num*4;
+		}
+		if (flag==1 &&  Send_Total>=sysConfig->meter_num*22) {
+			Send_Total = sysConfig->meter_num*22;
 		}
 		//printf("Send_Total =%d\n",Send_Total);
 		m_IOA = c_Start_Info;     //20080302
-		Info_Size = flag ? (4*FEILVMAX+3) : 7;
+		//Info_Size = flag ? (4*FEILVMAX+3) : 7;
+		Info_Size = 7;
 		Send_num = (MAXSENDBUF-DL719FIXLEN)/Info_Size;
 		Send_Times = Send_Total/Send_num;
 		if (Send_Total%Send_num)
@@ -521,7 +542,7 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			T2 = T3;
 
 		if (!flag){
-			printf(LIB_DBG"总电量\n");
+			printf(LIB_DBG"----总电量\n");
 			ret = GetFileName_Day(
 			                &filename,
 			                c_Start_MON,
@@ -529,12 +550,12 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			                c_Start_Info/4,
 			                TASK_TE);
 		}else{
-			printf(LIB_DBG"分时电量\n");
+			printf(LIB_DBG"====分时电量\n");
 			ret = GetFileName_Day(
-			                &filename,
+			                &filename_tou,
 			                c_Start_MON,
 			                c_Start_D,
-			                c_Start_Info/4,
+			                c_Start_Info/22,
 			                TASK_TOU);
 		}
 		/*-----------------------------------------------
@@ -557,7 +578,7 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			                TASK_TE);
 		}else{
 			Circle = Search_CircleDBS(
-			                filename,
+			                filename_tou,
 			                c_Start_YL,
 			                c_Start_MON,
 			                c_Start_D,
@@ -671,39 +692,100 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 	//printf("m_VSQ %d\n",m_VSQ);
 	//序列号
 	this->Sequence_number++;
+	//printf(LIB_DBG"\t\tSequence_number=%d\n",Sequence_number);
 	int ov;
 	if(Sequence_number>0b1111){
-		ov=0b1;
+		ov=0b00100000;
 		Sequence_number=0;
 	}else{
 		ov=0;
 	}
-	for (i = 0; i<m_VSQ; i++) {
-		mtr_no = (m_IOA-1)/4;
-		inf_no = (m_IOA-1)%4;
+	for (i = 0; i<m_VSQ; i++) {//一个一个数据循环,一帧内的循环量
+		if(flag==0){//仅4个总电量的 缓冲区1
+			mtr_no = (m_IOA-1)/4;
+			inf_no = (m_IOA-1)%4;
+		}else{//全部电量+部分瞬时量 缓冲区2/3
+			mtr_no = (m_IOA-1)/22;
+			inf_no = (m_IOA-1)%22;
+		}
 		//信息体地址,ioa字节仅取1-255 多的进位的有逻辑设备地址logic ertu确定
 		m_transBuf.m_transceiveBuf[buffptr++ ] = m_IOA%256; //20080302
 		//获取储存文件名
-		if (!flag)
+		if (flag==0){//电量4个量
 			ret = GetFileName_Day(
 			                &filename,
 			                Start_MON,
 			                Start_D,
 			                mtr_no,
 			                TASK_TE);
-		else
-			ret = GetFileName_Day(
-			                &filename,
-			                Start_MON,
-			                Start_D,
-			                mtr_no,
-			                TASK_TOU);
-		printf(LIB_DBG"信息体数目m_VSQ:%d/%d ,信息体地址 ioa: %d\n"
+		}else{//其他各种电量 22个量
+			switch(inf_no+1){
+			case 1:
+			case 2:
+			case 3:
+			case 4:
+			case 5:
+			case 6:
+			case 7:
+			case 8:
+			case 9:
+			case 10:
+				ret = GetFileName_Day(
+				                &filename_tou,
+				                Start_MON,
+				                Start_D,
+				                mtr_no,
+				                TASK_TOU);
+				break;
+			case 11:
+			case 12:
+			case 13:
+			case 14:
+				ret = GetFileName_Day(
+				                &filename_qr,
+				                Start_MON,
+				                Start_D,
+				                mtr_no,
+				                TASK_QR);
+				break;
+			case 15://最大需量
+				ret = GetFileName_Day(
+				                &filename_mnt,
+				                Start_MON,
+				                Start_D,
+				                mtr_no,
+				                TASK_MNT);
+				break;
+			case 16://瞬时量 包括3相电流+3相电压 1个有功功率总
+			case 17:
+			case 18:
+			case 19:
+			case 20:
+			case 21:
+			case 22:
+				ret = GetFileName_Day(
+				                &filename_ta,
+				                Start_MON,
+				                Start_D,
+				                mtr_no,
+				                TASK_TA);
+				break;
+			default:
+				printf(LIB_ERR"错误的 缓冲区2 项目\n");
+				break;
+			}
+
+		}
+#if 1
+		printf(LIB_DBG"信息体数目m_VSQ:%d/%d ,总信息体地址:%d 字节:%d\n"
 			LIB_DBG	"表号 %d 表内增量 %d\n"
 			LIB_DBG	"时刻 %d-%d-%d %d:%d\n"
-			,i,m_VSQ,m_IOA,mtr_no,inf_no
-			, backTime[4], backTime[3], backTime[2], backTime[1], backTime[0]);
-		printf("TE history trans filename is %s\n", filename.c_str());
+			,i,m_VSQ,m_IOA,m_IOA%256,
+			mtr_no,inf_no
+			,backTime[4], backTime[3], backTime[2], backTime[1], backTime[0]
+			);
+#endif
+		//printf("TE history trans filename is %s\n", filename.c_str());
 		/*-----------------------------------------------
 		 ????״̬???ļ??????ڻ????Ѿ?????
 		 ------------------------------------------------*/
@@ -724,23 +806,85 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			                Save_XL,
 			                TASK_TE);
 		}else{
-			printf(LIB_DBG"分时电量 查询周期\n");
-			Circle = Search_CircleDBS(
-			                filename,
-			                Start_YL,
-			                Start_MON,
-			                Start_D,
-			                &Save_Num,
-			                Save_XL,
-			                TASK_TOU);
+			switch(inf_no+1){
+			case 1:
+			case 2:
+			case 3:
+			case 4:
+			case 5:
+			case 6:
+			case 7:
+			case 8:
+			case 9:
+			case 10:
+				printf(LIB_DBG"分时电量 查询周期 项目号:%d\n",inf_no+1);
+				Circle = Search_CircleDBS(
+						filename_tou,
+				                Start_YL,
+				                Start_MON,
+				                Start_D,
+				                &Save_Num,
+				                Save_XL,
+				                TASK_TOU);
+				break;
+			case 11:
+			case 12:
+			case 13:
+			case 14:
+				Circle = Search_CircleDBS(
+						filename_qr,
+				                Start_YL,
+				                Start_MON,
+				                Start_D,
+				                &Save_Num,
+				                Save_XL,
+				                TASK_QR);
+				printf(LIB_DBG"4象限无功 查询周期 项目号:%d\n"
+					LIB_DBG"文件名:%s 周期:%d\n"
+					,inf_no+1,filename_qr.c_str(),Circle);
+				break;
+			case 15:
+				printf(LIB_INF"正向有功最大需量\n");
+				Circle = Search_CircleDBS(
+						filename_mnt,
+				                Start_YL,
+				                Start_MON,
+				                Start_D,
+				                &Save_Num,
+				                Save_XL,
+				                TASK_MNT);
+				break;
+			case 16:
+			case 17:
+			case 18:
+			case 19:
+			case 20:
+			case 21:
+			case 22://瞬时量 3个电压 3个电流 1个有功功率总
+				Circle = Search_CircleDBS(
+						filename_ta,
+				                Start_YL,
+				                Start_MON,
+				                Start_D,
+				                &Save_Num,
+				                Save_XL,
+				                TASK_TA);
+				break;
+			default:
+				printf(LIB_ERR"错误的 缓冲区2 周期项目\n");
+				Circle=c_CircleTime;
+				break;
+			}
+
+			//printf(LIB_DBG"分时电量 查询周期\n");
+
 		}
-		/*-----------------------------------------------
-		 ????״̬?????ݴ洢???ڹ???
-		 ------------------------------------------------*/
+		///储存周期有问题
 		if (!Circle||(Circle!=c_CircleTime)) {
+			printf(LIB_ERR"存储周期 c_CircleTime=%d Circle=%d\n"
+					,c_CircleTime,Circle);
 			Clear_Continue_Flag();
 			Send_MFrame(10);
-			//E5H_Yes();
 			return -8;
 		}
 
@@ -769,13 +913,18 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			 */
 			//数据有效,溢出,序列号位
 			m_transBuf.m_transceiveBuf[buffptr-1]|=this->Sequence_number;
-			m_transBuf.m_transceiveBuf[buffptr-1]|=(ov<6);
+			//printf(LIB_INF"\t\tSequence_number=%d [%X]\n"
+			//	,Sequence_number,m_transBuf.m_transceiveBuf[buffptr-1]);
+			m_transBuf.m_transceiveBuf[buffptr-1]|=ov;
+			//printf(LIB_INF"\t\tSequence_number=%d [%X]\n"
+			//	,Sequence_number,m_transBuf.m_transceiveBuf[buffptr-1]);
 			sum = 0;
 			//电量校验和
 #define  TI_CHK_SUM 2 //是否需要电能量数据保护校验
 #if TI_CHK_SUM ==1
-			for (j = 0; j<6; j++)
+			for (j = 0; j<6; j++){
 				sum += m_transBuf.m_transceiveBuf[buffptr-6+j];
+			}
 
 #elif TI_CHK_SUM==2 //另一种校验和方式,多种数据一起校验,TODO
 			sum=m_TI+logic_Ertu_lo+logic_Ertu_hi+c_Record_Addr;
@@ -784,14 +933,187 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			sum+=backTime[2];
 			sum+=backTime[3];
 			sum+=backTime[4];
-			for(j=0;j<6;j++)
+			for(j=0;j<6;j++){
 				sum+=m_transBuf.m_transceiveBuf[buffptr-6+j];
-
+			}
 #endif
 			m_transBuf.m_transceiveBuf[buffptr++ ] = sum;
-		}else {
-			Save_BZ = 0x80;
+		}else {//第2缓冲区
+			//int item_offset=inf_no+1;
+			printf(LIB_INF"ioa 项目地址:%d/%d 项目号:%d\n"
+					,m_IOA,Send_Total,inf_no+1);
+			switch(inf_no+1){
+			case 1:
+			case 2:
+			case 3:
+			case 4:
+			case 5:
+			case 6:
+			case 7:
+			case 8:
+			case 9:
+			case 10://
+				printf(LIB_INF"正反向总+分时系列2*5个\n");
+				GetDnlSSlDataDBS(
+					tempData,
+					filename_tou,
+					Start_MIN,
+					Start_H,
+					inf_no,
+					c_CircleTime,
+					Save_Num,
+					TASK_TOU);
+				break;
+			case 11://因为4个无功功率排列不同.所以一个一个区分
+				printf(LIB_INF"象限无功4个 no1 file:%s\n",filename_qr.c_str());
+				GetDnlSSlDataDBS(
+					tempData,
+					filename_qr,
+					Start_MIN,
+					Start_H,
+					0,//一个项目内的偏移,象限无功 4(象限)*5(总尖..)=20项
+					//第一维:象限 [1 4 2 3] 象限
+					//第2维:分时 [总 尖 峰 平 谷]
+					c_CircleTime,
+					Save_Num,
+					TASK_QR);
+				break;
+			case 12:
+				printf(LIB_INF"象限无功4个 no2 file:%s\n",filename_qr.c_str());
+				GetDnlSSlDataDBS(
+					tempData,
+					filename_qr,
+					Start_MIN,
+					Start_H,
+					10,
+					c_CircleTime,
+					Save_Num,
+					TASK_QR);
+				break;
+			case 13:
+				printf(LIB_INF"象限无功4个 no3 file:%s\n",filename_qr.c_str());
+				GetDnlSSlDataDBS(
+					tempData,
+					filename_qr,
+					Start_MIN,
+					Start_H,
+					15,//一个项目内的偏移
+					c_CircleTime,
+					Save_Num,
+					TASK_QR);
+				break;
+			case 14:
+				printf(LIB_INF"象限无功4个 no4 file:%s\n",filename_qr.c_str());
+				GetDnlSSlDataDBS(
+					tempData,
+					filename_qr,
+					Start_MIN,
+					Start_H,
+					5,
+					c_CircleTime,
+					Save_Num,
+					TASK_QR);
+				break;
+			case 15:
+				printf(LIB_INF"正向有功最大需量\n");
+				GetMntDataDBS(
+				                tempData,
+				                filename,
+				                Start_MIN,
+				                Start_H,
+				                Save_XH,
+				                c_CircleTime,
+				                Save_Num,
+				                TASK_MNT);
 
+				/* GetDnlSSlDataDBS(
+					tempData,
+					filename_mnt,
+					Start_MIN,
+					Start_H,
+					0,//4(正反有无)+5(总尖...)=20.
+					c_CircleTime,
+					Save_Num,
+					TASK_MNT); */
+				break;
+			case 16://顺序不对区分case
+				printf(LIB_INF"有功功率总\n");
+				GetDnlSSlDataDBS(
+					tempData,
+					filename_ta,
+					Start_MIN,
+					Start_H,
+					6,//Vabc +Iabc=6个
+					c_CircleTime,
+					Save_Num,
+					TASK_TA);
+				break;
+			case 17:
+			case 18:
+			case 19:
+				printf(LIB_INF"电流3相\n");
+				GetDnlSSlDataDBS(
+					tempData,
+					filename_ta,
+					Start_MIN,
+					Start_H,
+					//项目内部偏移3,前面有3个电压,
+					//缓冲区偏移17(从1开始).
+					3+(inf_no+1)-17,
+					c_CircleTime,
+					Save_Num,
+					TASK_TA);
+				break;
+			case 20:
+			case 21:
+			case 22:
+				printf(LIB_INF"电压3相\n");
+				GetDnlSSlDataDBS(
+					tempData,
+					filename_ta,
+					Start_MIN,
+					Start_H,
+					//项目内部偏移0,每个项目有电压开始的
+					//缓冲区偏移20(从1开始).
+					0+(inf_no+1)-20,
+					c_CircleTime,
+					Save_Num,
+					TASK_TA);
+				break;
+			default:
+				printf(LIB_ERR"错误的 缓冲区2 项目\n");
+				memset(tempData,0x00,32);
+				break;
+			}
+			Save_BZ = 0x80;
+			/*GetDnlSSlDataDBS(
+			                tempData,
+			                filename,
+			                Start_MIN,
+			                Start_H,
+			                inf_no,
+			                c_CircleTime,
+			                Save_Num,
+			                TASK_TOU);
+			*/
+			memcpy(&value, tempData, 4);
+			val = value*1000;
+			printf(LIB_DBG"项目号:%d val=%.3f\n"
+				,inf_no+1,value);
+			memcpy(tempData, &val, 4);
+			memcpy(
+			                &m_transBuf.m_transceiveBuf[buffptr],
+			                tempData,
+			                5);
+			buffptr += 5;
+			/** 数据有效字节
+			 * 7  6  5  4  3 2 1 0
+			 * IV,CA,CY,LW  序列号
+			 */
+			//数据有效,溢出,序列号位
+			m_transBuf.m_transceiveBuf[buffptr-1]|=this->Sequence_number;
+			m_transBuf.m_transceiveBuf[buffptr-1]|=ov;
+#if 0
 			for (j = 0; j<FEILVMAX; j++) {
 				Save_Point = inf_no*FEILVMAX+j;
 				Save_Have = 0;
@@ -806,7 +1128,7 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 				                "#######In tou history save_Have is %d ,save_num is %d######\n",
 				                Save_Have,
 				                Save_Num);
-				if (Save_Have)
+				if (Save_Have){
 					GetDnlSSlDataDBS(
 					                tempData+j*5,
 					                filename,
@@ -816,7 +1138,7 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 					                c_CircleTime,
 					                Save_Num,
 					                TASK_TOU);
-				else {
+				} else {
 					memset(tempData+j*5, 0, 5);
 					tempData[j*5+4] = 0x80;
 				}
@@ -831,9 +1153,18 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			}
 			m_transBuf.m_transceiveBuf[buffptr++ ] =
 			                tempData[4]&tempData[9]&tempData[14]&tempData[19]&tempData[24];
+#endif
 			sum = 0;
-			for (j = 0; j<1+4*FEILVMAX+1; j++)
-				sum += m_transBuf.m_transceiveBuf[buffptr-(2+4*FEILVMAX)+j];
+			//电量校验位
+			sum=m_TI+logic_Ertu_lo+logic_Ertu_hi+c_Record_Addr;
+			sum+=backTime[0];
+			sum+=backTime[1];
+			sum+=backTime[2];
+			sum+=backTime[3];
+			sum+=backTime[4];
+			for(j=0;j<6;j++){
+				sum+=m_transBuf.m_transceiveBuf[buffptr-6+j];
+			}
 			m_transBuf.m_transceiveBuf[buffptr++ ] = sum;
 		}
 		m_IOA++;
@@ -843,6 +1174,7 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 	m_transBuf.m_transceiveBuf[buffptr++ ] = backTime[2];
 	m_transBuf.m_transceiveBuf[buffptr++ ] = backTime[3];
 	m_transBuf.m_transceiveBuf[buffptr++ ] = backTime[4];
+	//链路校验位
 	sum = 0;
 	for (i = 4; i<buffptr; i++)
 		sum += m_transBuf.m_transceiveBuf[i];
@@ -2531,7 +2863,7 @@ void CDl719s::C_PL1_NA2(void)
 		printf(LIB_INF"实时总电量\n");
 		ret = M_IT_NA_2(0);
 		break;
-	case C_CI_NQ_2:     //历史总电量
+	case C_CI_NQ_2:     //历史总电量/分时电量
 		ret = M_IT_NA_T2(0);
 		printf(LIB_INF"历史总电量 Te history ret %d \n", ret);
 		break;
@@ -2632,6 +2964,7 @@ int CDl719s::Process_Short_Frame(unsigned char *data)
 		Command = C_RCU_NA_2;
 		M_NV_NA_2(0);
 		C_RCU_NAF();//复位通信单元reset  commint unit
+		this->Sequence_number=0;
 		break;
 	case 9:
 		printf(LIB_INF"fc 9 请求链路状态\n");
@@ -3209,6 +3542,8 @@ int CDl719s::dl719_Recieve()
 	}
 	while (len>=syn_char_num) {
 		copyfrom_buf(readbuf, &m_recvBuf, len);
+		printArray(readbuf, len);
+		printf("\n");
 		if (!dl719_synchead(readbuf)) {
 			if (0x68==*readbuf) {
 				expect_charnum = *(readbuf+1)+6;

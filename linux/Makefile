@@ -30,4 +30,4 @@ $(NAME):$(SOURCE)
 	$(CC) $(LDFLAGS) $(CXXFLAGS) -shared $(MARCO) $(INCS) $^ -o lib$@.so $(LIBS) # -Wall
 #生成后上传, 用户名:anonymous 密码:holley IP:192.168.1.143 
 #文件名:libDl719ss.so  上传至目录:lib/
-	lftp -u anonymous,holley 192.168.1.143 -e "put libDl719ss.so  -o lib/;quit"
+	lftp -u anonymous,holley 192.168.1.69 -e "put libDl719ss.so  -o lib/;quit"

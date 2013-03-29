@@ -91,7 +91,6 @@ void CBASE102:: M_NV_NA_2(unsigned char flag)
 	m_transBuf.m_transceiveBuf[0]=0x10;
 	if(flag==0){//复位链路
 		m_transBuf.m_transceiveBuf[1]=0x20;
-		this->Sequence_number=0;
 	}else if(1==flag){//请求链路状态
 		m_transBuf.m_transceiveBuf[1]=0x0b;
 	}else{//回应:没有2类,有1类数据
