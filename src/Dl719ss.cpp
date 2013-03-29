@@ -2764,7 +2764,8 @@ int CDl719s::M_SP_TA_2N()
 	if ((T1==0)||(T2==0))
 	                {
 		Clear_Continue_Flag();
-		E5H_Yes();
+		Send_MFrame(10);
+		//E5H_Yes();
 		SendT_RealTimes = 0;
 		printf("error t1 or t2 =0\n");
 		return -3;
@@ -2776,7 +2777,8 @@ int CDl719s::M_SP_TA_2N()
 	if (Continue_Flag==1){
 		if (!SendT_RealTimes){
 			Clear_Continue_Flag();
-			E5H_Yes();
+			Send_MFrame(10);
+			//E5H_Yes();
 			SendT_RealTimes = 0;
 			return -1;
 		}
@@ -2798,14 +2800,15 @@ int CDl719s::M_SP_TA_2N()
 	                1);
 */
 	// printf("@@@read out history event,ret=%d!&&&&&&\n,  ",ret);
-	 for(j=0;j<200;j++)
-	 printf(" %02x",temp_buf[j]);
-	 printf("\n");
+//	 for(j=0;j<200;j++)
+//	 printf(" %02x",temp_buf[j]);
+//	 printf("\n");
 
 	if ((ret<0)||(!temp_buf[0])){
 		printf(LIB_INF"ret=%d temp_buf[0]=%d\n",ret,temp_buf[0]);
-		E5H_Yes();
 		Clear_Continue_Flag();
+		Send_MFrame(10);
+		//E5H_Yes();
 		SendT_RealTimes = 0;
 		return -2;
 	}
