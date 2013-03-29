@@ -795,6 +795,7 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			//E5H_Yes();
 			return -7;
 		}
+
 		if (!flag){
 			printf(LIB_DBG"总电量 查询周期\n");
 			Circle = Search_CircleDBS(
@@ -851,7 +852,7 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 				                Start_MON,
 				                Start_D,
 				                &Save_Num,
-				                Save_XL,
+				                &Save_XL[0],
 				                TASK_MNT);
 				break;
 			case 16:
@@ -940,6 +941,7 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			m_transBuf.m_transceiveBuf[buffptr++ ] = sum;
 		}else {//第2缓冲区
 			//int item_offset=inf_no+1;
+			unsigned char ivByte=80;//有效字节
 			printf(LIB_INF"ioa 项目地址:%d/%d 项目号:%d\n"
 					,m_IOA,Send_Total,inf_no+1);
 			switch(inf_no+1){
@@ -1018,23 +1020,22 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 				printf(LIB_INF"正向有功最大需量\n");
 				GetMntDataDBS(
 				                tempData,
-				                filename,
+				                filename_mnt,
 				                Start_MIN,
 				                Start_H,
-				                Save_XH,
+				                0,
 				                c_CircleTime,
 				                Save_Num,
 				                TASK_MNT);
-
-				/* GetDnlSSlDataDBS(
-					tempData,
-					filename_mnt,
-					Start_MIN,
-					Start_H,
-					0,//4(正反有无)+5(总尖...)=20.
-					c_CircleTime,
-					Save_Num,
-					TASK_MNT); */
+				//需量单个结构 10 字节:
+				// 年 月 日 时 分 (4字节数据) 1字节有效 1字节校验
+				//memcpy(tempData,tempData+5,4);
+				printf(LIB_INF"Save_XH=%d *****最大需量",Save_XH);
+				int k;
+				for(k=0;k<32;k++){
+					printf(" %02X",tempData[k]);
+				}
+				printf("\n");
 				break;
 			case 16://顺序不对区分case
 				printf(LIB_INF"有功功率总\n");
@@ -1082,10 +1083,18 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 				break;
 			default:
 				printf(LIB_ERR"错误的 缓冲区2 项目\n");
-				memset(tempData,0x00,32);
+				memset(tempData,0x00,4);
 				break;
 			}
-			Save_BZ = 0x80;
+			Save_BZ = 0x80;//默认是无效
+			if((inf_no+1)==15){//只有最大需量的有效字节在后面
+				Save_BZ=tempData[9];
+			}else{//其他电量的有效字节就跟在4字节电量之后
+				Save_BZ=tempData[4];
+			}
+			if((Save_BZ&0b10000000)/*最高位iv*/!=0){//数据无效
+				memset(tempData,0x00,4);
+			}
 			/*GetDnlSSlDataDBS(
 			                tempData,
 			                filename,
@@ -1111,6 +1120,7 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			 * IV,CA,CY,LW  序列号
 			 */
 			//数据有效,溢出,序列号位
+			m_transBuf.m_transceiveBuf[buffptr-1]=Save_BZ;//有效字节
 			m_transBuf.m_transceiveBuf[buffptr-1]|=this->Sequence_number;
 			m_transBuf.m_transceiveBuf[buffptr-1]|=ov;
 #if 0
