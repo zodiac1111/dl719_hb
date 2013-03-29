@@ -2751,8 +2751,8 @@ int CDl719s::M_SP_TA_2N()
 		goto CONSDEVT;
 	}
 	//printf("In M_sp_ta_2n:");
-	//printf("c_Start_MIN=%d,c_Start_H=%d,c_Start_D=%d,c_Start_MON=%d,c_Start_YL=%d\n",c_Start_MIN,c_Start_H,c_Start_D,c_Start_MON,c_Start_YL);
-	//printf("c_end_MIN=%d,c_end_H=%d,c_end_D=%d,c_end_MON=%d,c_end_YL=%d\n",c_End_MIN,c_End_H,c_End_D,c_End_MON,c_End_YL);
+	printf("c_Start_MIN=%d,c_Start_H=%d,c_Start_D=%d,c_Start_MON=%d,c_Start_YL=%d\n",c_Start_MIN,c_Start_H,c_Start_D,c_Start_MON,c_Start_YL);
+	printf("c_end_MIN=%d,c_end_H=%d,c_end_D=%d,c_end_MON=%d,c_end_YL=%d\n",c_End_MIN,c_End_H,c_End_D,c_End_MON,c_End_YL);
 	T1 = Calc_Time_102(
 	                c_Start_MIN,
 	                c_Start_H,
@@ -2784,9 +2784,10 @@ int CDl719s::M_SP_TA_2N()
 	T1 = c_HisStartT;
 	T2 = c_HisSendT;
 
-	//printf("@@@start enter read history event!&&&&&&&\n");
+	//printf("@@@start enter read history event!&&&&&&& SendT_RealTimes=%d\n",SendT_RealTimes);
 	//ret=read_hisevt(temp_buf, T1, T2, SendT_RealTimes);
-	ret = ReadSomeRecord(
+	ret=Read_evt_kkk(temp_buf, c_HisStartT, c_HisSendT,EVENTFILE,SendT_RealTimes);
+	/*ret = ReadSomeRecord(
 	                temp_buf,
 	                T1,
 	                T2,
@@ -2795,13 +2796,14 @@ int CDl719s::M_SP_TA_2N()
 	                EVENTFILE,
 	                MAXEVENT,
 	                1);
-	/*
-	 printf("@@@read out history event,ret=%d!&&&&&&\n,  ",ret);
+*/
+	// printf("@@@read out history event,ret=%d!&&&&&&\n,  ",ret);
 	 for(j=0;j<200;j++)
 	 printf(" %02x",temp_buf[j]);
 	 printf("\n");
-	 */
+
 	if ((ret<0)||(!temp_buf[0])){
+		printf(LIB_INF"ret=%d temp_buf[0]=%d\n",ret,temp_buf[0]);
 		E5H_Yes();
 		Clear_Continue_Flag();
 		SendT_RealTimes = 0;
@@ -2938,7 +2940,7 @@ void CDl719s::C_PL1_NA2(void)
 		ret = M_CTL_PORT_Close();
 		break;
 	case C_SP_NB_2:
-		printf(LIB_INF"读一个选定时间范围内的带时标的单点信息的记录");
+		printf(LIB_INF"读一个选定时间范围内的带时标的单点信息的记录\n");
 		ret = M_SP_TA_2N();
 		printf(LIB_INF"M_SP_TA_2N ret=%d\n", ret);
 		break;
