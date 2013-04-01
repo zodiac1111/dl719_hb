@@ -28,7 +28,7 @@
 #define C_CI_NC_2 107 //制定地址范围的当前总电量
 #define C_CI_NQ_2 120//指定时间和地址范围的历史总电量
 //#define C_CI_NR_2 121//读负荷曲线
-#define C_SYN_TA_2  72   //系统时间同步
+#define C_SYN_TA_2  128   //系统时间同步
 #define C_CI_NA_B_2 169//指定地址范围的当前分时电量
 #define C_CI_TA_B_2 170//制定地址和时间范围的历史分时电量
 #define C_YC_NA_2 171//指定地址范围的遥测当前值

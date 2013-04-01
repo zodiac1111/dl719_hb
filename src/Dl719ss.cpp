@@ -120,10 +120,12 @@ CDl719s::CDl719s()
 }
 int CDl719s::Init(struct stPortConfig *tmp_portcfg)
 {
+	CBASE102::Init(tmp_portcfg);
 	c_Link_Address_H = tmp_portcfg->m_ertuaddr>>8;
 	c_Link_Address_L = (unsigned char) tmp_portcfg->m_ertuaddr;
 	printf(LIB_DBG"tmp_portcfg->m_ertuaddr= %04X \n",tmp_portcfg->m_ertuaddr);
 	m_checktime_valifalg = tmp_portcfg->m_checktime_valiflag;
+	syn_loopbuff_ptr(&m_recvBuf);
 	m_suppwd = tmp_portcfg->m_usrsuppwd;
 	m_pwd1 = tmp_portcfg->m_usrpwd1;
 	m_pwd2 = tmp_portcfg->m_usrpwd2;
@@ -2764,6 +2766,8 @@ int CDl719s::M_SP_NA_2N()
 	//printf("@@@start enter read history event!&&&&&&& SendT_RealTimes=%d\n",SendT_RealTimes);
 	//ret=read_hisevt(temp_buf, T1, T2, SendT_RealTimes);
 	unsigned char evt_num=0;
+	#define READ_EVT_NUM 5
+	//读取事件,个数放到evt_num中,事件数组数据放到temp_buf中
 	ret=Read_Cur_Evt(temp_buf,&evt_num);
 	printf(LIB_DBG"ent_num=%d\n",evt_num);
 	/*ret = ReadSomeRecord(
@@ -2777,12 +2781,12 @@ int CDl719s::M_SP_NA_2N()
 	                1);
 */
 	// printf("@@@read out history event,ret=%d!&&&&&&\n,  ",ret);
-//	 for(j=0;j<200;j++)
-//	 printf(" %02x",temp_buf[j]);
-//	 printf("\n");
+	 for(j=0;j<200;j++)
+		 printf(" %02x",temp_buf[j]);
+	 printf("\n");
 
-	if ((ret<0)||(!temp_buf[0])){
-		printf(LIB_INF"ret=%d temp_buf[0]=%d\n",ret,temp_buf[0]);
+	if ((ret<0)||(evt_num==0)){
+		printf(LIB_INF"ret=%d evt_num=%d\n",ret,evt_num);
 		Clear_Continue_Flag();
 		Send_MFrame(10);
 		//E5H_Yes();
@@ -2790,17 +2794,17 @@ int CDl719s::M_SP_NA_2N()
 		return -2;
 	}
 	if (!temp_buf[3]){
-		SendT_RealTimes = 0;
+		//SendT_RealTimes = 0;
 	}else{
-		SendT_RealTimes = temp_buf[1]+temp_buf[2]*0x100;
+		//SendT_RealTimes = temp_buf[1]+temp_buf[2]*0x100;
 	}
 	if (!Continue_Flag){
-		c_HisStartT =
-		                temp_buf[4]+temp_buf[5]*0x100+temp_buf[6]*0x10000+temp_buf[7]*0x1000000;
-		c_HisSendT =
-		                temp_buf[8]+temp_buf[9]*0x100+temp_buf[10]*0x10000+temp_buf[11]*0x1000000;
+		//c_HisStartT =
+		//                temp_buf[4]+temp_buf[5]*0x100+temp_buf[6]*0x10000+temp_buf[7]*0x1000000;
+		//c_HisSendT =
+		//                temp_buf[8]+temp_buf[9]*0x100+temp_buf[10]*0x10000+temp_buf[11]*0x1000000;
 	}
-	m_VSQ = temp_buf[0];
+	m_VSQ =evt_num>READ_EVT_NUM?READ_EVT_NUM:evt_num;
 	printf("@@@df102->VSQ = %d!&&&&&&  \n", m_VSQ);
 
 	ptr = 0;
@@ -2810,16 +2814,16 @@ int CDl719s::M_SP_NA_2N()
 	m_transBuf.m_transceiveBuf[ptr++ ] = 0x68;
 
 	m_transBuf.m_transceiveBuf[ptr++ ] = m_ACD ? 0x028 : 0x08;	//??????
-	m_transBuf.m_transceiveBuf[ptr++ ] = c_Dev_Address_L;
-	m_transBuf.m_transceiveBuf[ptr++ ] = c_Dev_Address_H;
+	m_transBuf.m_transceiveBuf[ptr++ ] = c_Link_Address_L;
+	m_transBuf.m_transceiveBuf[ptr++ ] = c_Link_Address_H;
 	m_transBuf.m_transceiveBuf[ptr++ ] = m_TI;     //???ͱ?ʶ
 	m_transBuf.m_transceiveBuf[ptr++ ] = m_VSQ;     //???巢????Ϣ??????
 	m_transBuf.m_transceiveBuf[ptr++ ] = m_COT;     //????ԭ??
-	m_transBuf.m_transceiveBuf[ptr++ ] = c_Link_Address_L;
-	m_transBuf.m_transceiveBuf[ptr++ ] = c_Link_Address_H;
+	m_transBuf.m_transceiveBuf[ptr++ ] = logic_Ertu_lo;
+	m_transBuf.m_transceiveBuf[ptr++ ] = logic_Ertu_hi;
 	m_transBuf.m_transceiveBuf[ptr++ ] = c_Record_Addr;
 	for (j = 0; j<m_VSQ; j++){
-		memcpy(m_transBuf.m_transceiveBuf+ptr, temp_buf+12+j*9, 9);
+		memcpy(m_transBuf.m_transceiveBuf+ptr, temp_buf+j*9, 9);
 		ptr += 9;
 	}
 	tempsum = 0;
@@ -2943,13 +2947,13 @@ int CDl719s::M_SP_TA_2N()
 	m_transBuf.m_transceiveBuf[ptr++ ] = 0x68;
 
 	m_transBuf.m_transceiveBuf[ptr++ ] = m_ACD ? 0x028 : 0x08;	//??????
-	m_transBuf.m_transceiveBuf[ptr++ ] = c_Dev_Address_L;
-	m_transBuf.m_transceiveBuf[ptr++ ] = c_Dev_Address_H;
+	m_transBuf.m_transceiveBuf[ptr++ ] = c_Link_Address_L;
+	m_transBuf.m_transceiveBuf[ptr++ ] = c_Link_Address_H;
 	m_transBuf.m_transceiveBuf[ptr++ ] = m_TI;     //???ͱ?ʶ
 	m_transBuf.m_transceiveBuf[ptr++ ] = m_VSQ;     //???巢????Ϣ??????
 	m_transBuf.m_transceiveBuf[ptr++ ] = m_COT;     //????ԭ??
-	m_transBuf.m_transceiveBuf[ptr++ ] = c_Link_Address_L;
-	m_transBuf.m_transceiveBuf[ptr++ ] = c_Link_Address_H;
+	m_transBuf.m_transceiveBuf[ptr++ ] = logic_Ertu_lo;
+	m_transBuf.m_transceiveBuf[ptr++ ] = logic_Ertu_hi;
 	m_transBuf.m_transceiveBuf[ptr++ ] = c_Record_Addr;
 	for (j = 0; j<m_VSQ; j++){
 		memcpy(m_transBuf.m_transceiveBuf+ptr, temp_buf+12+j*9, 9);
@@ -3078,13 +3082,17 @@ int CDl719s::Process_Short_Frame(unsigned char *data)
 		c_FCB_Tmp = 0xff;
 	}
 	c_func_tmp = c_func;
+	unsigned char fcv=(*(data+1)&0b00010000)>>4;//帧计数有效位
 	c_FCB = *(data+1)&0x20;
-	if ((c_FCB_Tmp==c_FCB)&&((c_func==0x0a)||(c_func==0x0b))){
+	if ((c_FCB_Tmp==c_FCB)&&(fcv==1) ){
 		printf(LIB_INF"FCB 原始 %X ,现在 %X \n",c_FCB_Tmp,c_FCB);
-		//m_transBuf.m_transCount = m_LastSendBytes;
-		//return 0;
+		m_transBuf.m_transCount = m_LastSendBytes;
+		return 0;
 	}
-	c_FCB_Tmp = c_FCB;
+	printf(LIB_DBG"帧计数有效位 fcv:%d\n",fcv);
+	if(fcv==1){
+		c_FCB_Tmp = c_FCB;
+	}
 	c_FCV = *(data+1)&0x10;
 	//DP_RET(c_func)
 	printf("In %s m_func %d \n",__FUNCTION__,c_func);
@@ -3150,6 +3158,7 @@ int CDl719s::M_SYN_TA_2()
 		m_Resend = 0;
 		return 0;
 	}
+
 	m_TI = C_SYN_TA_2;
 	m_VSQ = 1;
 	m_COT = 0x30;
@@ -3159,13 +3168,13 @@ int CDl719s::M_SYN_TA_2()
 	m_transBuf.m_transceiveBuf[ptr++ ] = 0x10;
 	m_transBuf.m_transceiveBuf[ptr++ ] = 0x68;
 	m_transBuf.m_transceiveBuf[ptr++ ] = m_ACD ? 0x28 : 0x08;
-	m_transBuf.m_transceiveBuf[ptr++ ] = c_Dev_Address_L;
-	m_transBuf.m_transceiveBuf[ptr++ ] = c_Dev_Address_H;
+	m_transBuf.m_transceiveBuf[ptr++ ] = c_Link_Address_L;
+	m_transBuf.m_transceiveBuf[ptr++ ] = c_Link_Address_H;
 	m_transBuf.m_transceiveBuf[ptr++ ] = m_TI;
 	m_transBuf.m_transceiveBuf[ptr++ ] = m_VSQ;
 	m_transBuf.m_transceiveBuf[ptr++ ] = m_COT;
-	m_transBuf.m_transceiveBuf[ptr++ ] = c_Dev_Address_L;
-	m_transBuf.m_transceiveBuf[ptr++ ] = c_Dev_Address_H;
+	m_transBuf.m_transceiveBuf[ptr++ ] = logic_Ertu_lo;
+	m_transBuf.m_transceiveBuf[ptr++ ] = logic_Ertu_hi;
 	m_transBuf.m_transceiveBuf[ptr++ ] = c_Record_Addr;
 	m_transBuf.m_transceiveBuf[ptr++ ] = 0;
 	GetSystemTime_RTC(&Sys_Time);
@@ -3206,13 +3215,13 @@ int CDl719s::M_Return_SysTime()
 	m_transBuf.m_transceiveBuf[ptr++ ] = 0x10;
 	m_transBuf.m_transceiveBuf[ptr++ ] = 0x68;
 	m_transBuf.m_transceiveBuf[ptr++ ] = m_ACD ? 0x28 : 0x08;
-	m_transBuf.m_transceiveBuf[ptr++ ] = c_Dev_Address_L;
-	m_transBuf.m_transceiveBuf[ptr++ ] = c_Dev_Address_H;
+	m_transBuf.m_transceiveBuf[ptr++ ] = c_Link_Address_L;
+	m_transBuf.m_transceiveBuf[ptr++ ] = c_Link_Address_H;
 	m_transBuf.m_transceiveBuf[ptr++ ] = m_TI;
 	m_transBuf.m_transceiveBuf[ptr++ ] = m_VSQ;
 	m_transBuf.m_transceiveBuf[ptr++ ] = m_COT;
-	m_transBuf.m_transceiveBuf[ptr++ ] = c_Dev_Address_L;
-	m_transBuf.m_transceiveBuf[ptr++ ] = c_Dev_Address_H;
+	m_transBuf.m_transceiveBuf[ptr++ ] = logic_Ertu_lo;
+	m_transBuf.m_transceiveBuf[ptr++ ] = logic_Ertu_hi;
 	m_transBuf.m_transceiveBuf[ptr++ ] = c_Record_Addr;
 	m_transBuf.m_transceiveBuf[ptr++ ] = 0;
 	GetSystemTime_RTC(&systime);
@@ -3251,17 +3260,23 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 	c_TI_tmp = c_TI;
 	c_FCB = *(data+4)&0x20;
 	c_func = *(data+4)&0x0f;
-	if (c_FCB==c_FCB_Tmp) {
+	unsigned char fcv=(*(data+4)&0b00010000)>>4;//帧计数有效位
+	if (c_FCB==c_FCB_Tmp && fcv==1) {
 		printf(LIB_INF"重发\n");
 		m_transBuf.m_transCount = m_LastSendBytes;
 		return 0;
 	}
-	c_FCB_Tmp = c_FCB;
+
+	if(fcv==1){
+		c_FCB_Tmp = c_FCB;
+	}
 	c_FCV = *(data+4)&0x10;
 	tmp_VSQ = *(data+8);
 	tmp_Cot = *(data+9);
 	if ((0x03==c_func)/*&&(0x01==tmp_VSQ)*/) {
-		printf(LIB_INF"功能码3 数据传输\n");
+		printf(LIB_INF"功能码3 数据传输 c_TI_tmp=%d\n",c_TI_tmp);
+		logic_Ertu_lo=*(data+10);
+		logic_Ertu_hi=*(data+11);
 		switch (c_TI_tmp) {
 		case C_SYN_TA_2://系统时间同步
 			c_TI = C_SYN_TA_2;
@@ -3277,10 +3292,11 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 				Sys_Time.dayofmonth = *(data+17)&0X1F;
 				Sys_Time.month = *(data+18)&0X0F;
 				Sys_Time.year = 2000+(*(data+19)&0X7F);
+				//m_COT=
 				Write_RTC_Time(&Sys_Time);
 				*ERTU_TIME_CHECK = 1;
-				Clear_Continue_Flag();
-				Clear_FrameFlags();
+				//Clear_Continue_Flag();
+				//Clear_FrameFlags();
 			}
 			break;
 		case C_RD_NA_2://读制造厂和产品规范
@@ -3289,7 +3305,7 @@ int CDl719s::Process_Long_Frame(unsigned char * data)
 			E5H_Yes();
 			Command = C_CON_ACT;
 			break;
-		case C_TI_NB_2:    //读电能量终端设备的当前系统时间
+		case C_TI_NB_2:   //读电能量终端设备的当前系统时间
 			printf("Read system time !\n");
 			c_TI = C_TI_NB_2;
 			m_ACD = 1;
@@ -3744,11 +3760,15 @@ void CDl719s::dl719_Assemble()
 
 void CDl719s::SendProc()
 {
+	//调用父类,是否发送心跳帧
+	CBASE102::SendProc();
 	dl719_Assemble();
 }
 
 int CDl719s::ReciProc()
 {
+	//gprs 心跳帧,父类判断/实现
+	CBASE102::ReciProc();
 	return dl719_Recieve();
 }
 
