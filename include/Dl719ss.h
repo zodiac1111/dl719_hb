@@ -40,6 +40,7 @@
 #define C_LTOU_TA_2 178  //传送月末冻结电量
 #define C_TC_NA_1 211 //透抄表计当前数据
 //记录日志
+#define DEBUG_LEVEL 1
 #define DEBUG_LOG 1
 #if DEBUG_LOG
 #define HB719_debug_log  "/mnt/nor/goahead.log"
@@ -63,6 +64,7 @@
 	printf(LIB_DBG"[File:%s Line:%d] Fun:%s ret %d .\n",	\
 	__FILE__, __LINE__, __FUNCTION__,(ret));		 	\
 	}
+
 class CDl719s: public CBASE102
 {
 public:

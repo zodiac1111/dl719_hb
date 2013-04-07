@@ -14,7 +14,7 @@
 				</extensions>
 			</storageModule>
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-				<configuration buildProperties="" description="" id="0.1749194972" name="缺省值" parent="org.eclipse.cdt.build.core.prefbase.cfg">
+				<configuration artifactName="dl719_hb" buildProperties="" description="" id="0.1749194972" name="缺省值" parent="org.eclipse.cdt.build.core.prefbase.cfg">
 					<folderInfo id="0.1749194972." name="/" resourcePath="">
 						<toolChain id="org.eclipse.cdt.build.core.prefbase.toolchain.898764137" name="No ToolChain" resourceTypeBasedDiscovery="false" superClass="org.eclipse.cdt.build.core.prefbase.toolchain">
 							<targetPlatform id="org.eclipse.cdt.build.core.prefbase.toolchain.898764137.1644285188" name=""/>
@@ -25,10 +25,10 @@
 							</tool>
 							<tool id="org.eclipse.cdt.build.core.settings.holder.41365938" name="GNU C++" superClass="org.eclipse.cdt.build.core.settings.holder">
 								<option id="org.eclipse.cdt.build.core.settings.holder.incpaths.277532232" name="包含路径" superClass="org.eclipse.cdt.build.core.settings.holder.incpaths" valueType="includePath">
-									<listOptionValue builtIn="false" value="/home/lee/test/mycheckout/hl3104/trunk/hl3104jd/软件/hl3104/include"/>
-									<listOptionValue builtIn="false" value="/home/lee/test/mycheckout/hl3104/trunk/hl3104jd/软件/hl3104/src/protocollib/base102/include"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dl719_hb/include}&quot;"/>
 									<listOptionValue builtIn="false" value="/usr/include"/>
+									<listOptionValue builtIn="false" value="/home/zodiac1111/hl3104/trunk/hl3104-v1.3/include"/>
+									<listOptionValue builtIn="false" value="/home/zodiac1111/hl3104/trunk/hl3104-v1.3/src/protocollib/base102/include"/>
 								</option>
 								<inputType id="org.eclipse.cdt.build.core.settings.holder.inType.678035472" languageId="org.eclipse.cdt.core.g++" languageName="GNU C++" sourceContentType="org.eclipse.cdt.core.cxxSource,org.eclipse.cdt.core.cxxHeader" superClass="org.eclipse.cdt.build.core.settings.holder.inType"/>
 							</tool>
@@ -72,4 +72,10 @@
 			</target>
 		</buildTargets>
 	</storageModule>
+	<storageModule moduleId="refreshScope" versionNumber="2">
+		<configuration configurationName="缺省值">
+			<resource resourceType="PROJECT" workspacePath="/dl719_hb"/>
+		</configuration>
+	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 </cproject>

@@ -1,5 +1,5 @@
 /**
- * @file heb102.cpp
+ * @file heb102.cpp (Dl719ss.cpp)
  * 河北电力719(ice-60870-102)规约实现,继承base102.规约文本见doc/目录
  */
 #include "Dl719ss.h"
@@ -16,6 +16,7 @@
 #include "Hisfile.h"
 #include "color.h"
 #include <time.h>
+//版本信息,通过宏定义版本号/ GET_DLL_VERSION在
 #define PROTOCOL_VERSION 0x102
 GET_DLL_VERSION
 //unsigned char ERTU_TIME_CHECK;
@@ -24,7 +25,7 @@ unsigned char Main_Update_OK;
 
 void CDl719s::Clear_Continue_Flag()
 {
-	Command = C_NULL;
+	Command = 	C_NULL;
 	m_TI = C_NULL;
 	m_ACD = C_NULL;
 	Continue_Flag = 0;
