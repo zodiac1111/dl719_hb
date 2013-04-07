@@ -16,7 +16,7 @@
 #include "Hisfile.h"
 #include "color.h"
 #include <time.h>
-#define PROTOCOL_VERSION 0x101
+#define PROTOCOL_VERSION 0x102
 GET_DLL_VERSION
 //unsigned char ERTU_TIME_CHECK;
 int MsgQid;
@@ -42,7 +42,6 @@ void CDl719s::Clear_FrameFlags()
 	c_TI = 0;
 	m_ACD = 0;
 	m_Resend = 0;
-
 }
 
 void CDl719s::Read_Command_Time(unsigned char * data)
@@ -95,7 +94,6 @@ void CDl719s::Read_Command_Time(unsigned char * data)
 CDl719s::CDl719s()
 		: CBASE102()
 {
-
 	syn_char_num = 4;
 	Syn_Head_Rece_Flag = 0;
 	m_ACD = 0;
@@ -116,12 +114,12 @@ CDl719s::CDl719s()
 	c_FCB = 0;
 	c_FCB_Tmp = 0xff;
 	c_TI_tmp = 0xff;
-
 	memset(mirror_buf, 0, sizeof(mirror_buf));
 #if DEBUG_LOG
 	this->fp_log=fopen(HB719_debug_log,"a");
 #endif
 }
+
 int CDl719s::Init(struct stPortConfig *tmp_portcfg)
 {
 	CBASE102::Init(tmp_portcfg);
@@ -136,6 +134,7 @@ int CDl719s::Init(struct stPortConfig *tmp_portcfg)
 	this->Sequence_number=0;
 	return 0;
 }
+
 CDl719s::~CDl719s()
 {
 #if DEBUG_LOG
@@ -259,7 +258,7 @@ int CDl719s::M_IT_NA_2(unsigned char flag)
 	} else {
 		m_VSQ = Send_Total-Send_num*Send_RealTimes;
 		/*-------------------------------------------------
-		 ???????ݴ??????ϱ?־
+		 ־
 		 ---------------------------------------------------*/
 		Send_DataEnd = 1;
 	}
