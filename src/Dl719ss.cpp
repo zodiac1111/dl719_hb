@@ -1,3 +1,7 @@
+/**
+ * @file heb102.cpp
+ * 河北电力719(ice-60870-102)规约实现,继承base102.规约文本见doc/目录
+ */
 #include "Dl719ss.h"
 #include <sys/msg.h>
 #include <stdio.h>
