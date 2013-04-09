@@ -5,7 +5,7 @@
 #include "Dl719ss.h"
 #include <sys/msg.h>
 #include <stdio.h>
-#include <string>
+#include <string.h>
 #include "define.h"
 #include "sys_utl.h"
 #include "loopbuf.h"
@@ -157,9 +157,9 @@ int CDl719s::dl719_synchead(unsigned char * data)
 unsigned long CDl719s::RealTime_SSZ_Get(unsigned char Meter_No, unsigned char point)
 {
 	unsigned long value;
-	if (Meter_No>MAXMETER||point>19)
+	if (Meter_No>MAXMETER||point>19){
 		return 0;
-
+	}
 	if (point<3)
 		value = m_meterData[Meter_No].m_wU[point];
 	else if (point<6)
@@ -229,7 +229,7 @@ int CDl719s::M_IT_NA_2(unsigned char flag)
 			c_Stop_Info = sysConfig->meter_num*4-1;
 		}
 		/*-----------------------------------------------
-		 ????״̬????Ϣ????ַ??Χ????
+
 		 ------------------------------------------------*/
 		if (c_Stop_Info<=c_Start_Info) {
 			Clear_Continue_Flag();
@@ -882,9 +882,7 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 				Circle=c_CircleTime;
 				break;
 			}
-
 			//printf(LIB_DBG"分时电量 查询周期\n");
-
 		}
 		///储存周期有问题
 		if (!Circle||(Circle!=c_CircleTime)) {
@@ -894,7 +892,6 @@ int CDl719s::M_IT_NA_T2(unsigned char flag)
 			Send_MFrame(10);
 			return -8;
 		}
-
 		if (!flag) { //总电量
 			GetDnlSSlDataDBS(
 			                tempData,

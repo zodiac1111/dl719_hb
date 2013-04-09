@@ -118,14 +118,14 @@ protected:
 	int Sequence_number;
 	int logic_Ertu_lo;
 	int logic_Ertu_hi;
-	//正/反向有功总+分时 文件
-	std::string   filename_tou;
+	//正/反向有功总+分时 历史文件
+	std::string filename_tou;
 	//4象限无功
-	std::string   filename_qr;
+	std::string filename_qr;
 	std::string filename_mnt;//最大需量文件
 	std::string filename_ta;//瞬时量文件
 #if DEBUG_LOG
-	//本规约日志
+	//规约报文保存文件
 	FILE *fp_log;
 #endif
 private:

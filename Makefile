@@ -26,16 +26,19 @@ LDFLAGS	= -s
 MAKEDATE = \"$(shell date +%g:%m:%d:%H:%M)\"
 MARCO	= -DMAKEDATE=$(MAKEDATE)  -DHL3104JD
 wflag	= -Wfatal-errors # -Wall
+out_dir = output
 
 ##主目标 生成so动态库
 all:$(NAME)
 $(NAME):$(SOURCE)
 	$(CC) $(LDFLAGS) $(CXXFLAGS) \
-	-shared $(MARCO) $(INCS) $^ -o lib$@.so $(LIBS) $(wflag)
+	-shared $(MARCO) $(INCS) $^ -o $(out_dir)/lib$@.so $(LIBS) $(wflag)
 
 ##清理目标
 clean::
-	rm -rf linux/*.so
+	rm -rf $(out_dir)/lib*.so
+distclean::
+	rm -rf $(out_dir)/*
 
 ##上传目标
 #生成后上传:IP:192.168.1.189 用户名:anonymous 密码:holley  
@@ -43,3 +46,5 @@ clean::
 update:all
 	lftp -u anonymous,holley 192.168.1.189 \
 	-e "put libDl719ss.so  -o nor/lib/;quit"
+	
+install:update
